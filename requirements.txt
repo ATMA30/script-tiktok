@@ -1,0 +1,10 @@
+edge-tts
+faster-whisper
+google-genai
+numpy
+Pillow
+pydantic
+python-dotenv
+requests
+soundfile
+yt-dlp

@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #000;
+        font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+      }
+      .bg {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        object-fit: cover;
+        will-change: transform, opacity;
+        opacity: 0;
+        filter: saturate(0.7) contrast(1.15) brightness(0.85);
+      }
+      .vignette {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.85) 100%);
+        pointer-events: none;
+        z-index: 5;
+      }
+      .grain {
+        position: absolute;
+        inset: 0;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.18 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+        opacity: 0.45;
+        mix-blend-mode: overlay;
+        z-index: 6;
+        pointer-events: none;
+      }
+      .subtitle {
+        position: absolute;
+        bottom: 220px;
+        left: 60px;
+        right: 60px;
+        z-index: 10;
+        color: #fff;
+        font-size: 56px;
+        font-weight: 700;
+        line-height: 1.25;
+        text-align: center;
+        text-shadow: 0 4px 24px rgba(0,0,0,0.95), 0 0 8px rgba(0,0,0,0.8);
+        letter-spacing: -0.5px;
+        opacity: 0;
+        will-change: opacity, transform;
+      }
+      .classified-tag {
+        position: absolute;
+        top: 80px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(180, 30, 30, 0.95);
+        color: #fff;
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: 6px;
+        padding: 12px 28px;
+        border: 2px solid rgba(255,255,255,0.6);
+        z-index: 11;
+        opacity: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="9.936"
+      data-width="1080"
+      data-height="1920"
+    >
+      <img id="bg1" class="bg clip" src="assets/plan_1.jpg"
+           data-start="0" data-duration="5.5" data-track-index="0" />
+
+      <img id="bg2" class="bg clip" src="assets/plan_2.jpg"
+           data-start="5" data-duration="4.936" data-track-index="1" />
+
+      <div id="vignette" class="vignette clip" data-start="0" data-duration="9.936" data-track-index="2"></div>
+      <div id="grain" class="grain clip" data-start="0" data-duration="9.936" data-track-index="3"></div>
+
+      <div id="tag" class="classified-tag clip"
+           data-start="0.4" data-duration="3" data-track-index="4">
+        CLASSIFIED
+      </div>
+
+      <div id="sub1" class="subtitle clip" data-start="0.3" data-duration="3.2" data-track-index="10">
+        Ce que vous allez voir...<br/>n'est pas une théorie.
+      </div>
+      <div id="sub2" class="subtitle clip" data-start="3.6" data-duration="3.1" data-track-index="11">
+        En 1979, sous le désert<br/>du Nouveau-Mexique...
+      </div>
+      <div id="sub3" class="subtitle clip" data-start="6.8" data-duration="3.1" data-track-index="12">
+        l'humanité a ouvert une porte...<br/><span style="color:#ff5252">vers le mal pur.</span>
+      </div>
+
+      <audio id="vo" class="clip" src="assets/scene_1.wav"
+             data-start="0" data-duration="9.936" data-track-index="20"
+             data-volume="1.0"></audio>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      // Image 1 : fade in + slow zoom Ken Burns
+      gsap.set("#bg1", { opacity: 0, scale: 1.0, x: 0, y: 0 });
+      tl.to("#bg1", { opacity: 1, duration: 0.6, ease: "power2.out" }, 0);
+      tl.to("#bg1", { scale: 1.18, x: -40, duration: 5.5, ease: "none", overwrite: "auto" }, 0);
+      tl.to("#bg1", { opacity: 0, duration: 0.8, ease: "power2.in" }, 4.7);
+
+      // Image 2 : crossfade + slow pan
+      gsap.set("#bg2", { opacity: 0, scale: 1.08, x: 30 });
+      tl.to("#bg2", { opacity: 1, duration: 0.8, ease: "power2.out" }, 5);
+      tl.to("#bg2", { scale: 1.0, x: -20, duration: 4.936, ease: "none", overwrite: "auto" }, 5);
+
+      // CLASSIFIED tag : flash in then linger
+      tl.fromTo("#tag",
+        { opacity: 0, scale: 0.7 },
+        { opacity: 1, scale: 1, duration: 0.25, ease: "back.out(2)" }, 0.4);
+      tl.to("#tag", { opacity: 0, duration: 0.4 }, 3.0);
+
+      // Subtitle 1
+      tl.fromTo("#sub1", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 0.3);
+      tl.to("#sub1", { opacity: 0, y: -20, duration: 0.3, ease: "power2.in" }, 3.2);
+
+      // Subtitle 2
+      tl.fromTo("#sub2", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 3.6);
+      tl.to("#sub2", { opacity: 0, y: -20, duration: 0.3, ease: "power2.in" }, 6.4);
+
+      // Subtitle 3
+      tl.fromTo("#sub3", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, 6.8);
+      tl.to("#sub3", { opacity: 0, y: -20, duration: 0.4, ease: "power2.in" }, 9.5);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

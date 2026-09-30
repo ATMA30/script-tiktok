@@ -1,0 +1,408 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "crosshair_scan",
+      "file": "library/crosshair_scan.json",
+      "tags": [
+        "crosshair",
+        "target",
+        "scan",
+        "hud",
+        "investigation",
+        "focus"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.95,
+      "monochrome_safe": true,
+      "natural_duration_s": 2.0,
+      "looping": false,
+      "description": "Central crosshair plus 4 corner brackets, framing the subject.",
+      "size_kb": 5.8
+    },
+    {
+      "id": "evidence_pin_thread",
+      "file": "library/evidence_pin_thread.json",
+      "tags": [
+        "evidence",
+        "pin",
+        "thread",
+        "investigation",
+        "location",
+        "address",
+        "link",
+        "connection"
+      ],
+      "default_blend": "normal",
+      "default_opacity": 1.0,
+      "monochrome_safe": true,
+      "natural_duration_s": 2.0,
+      "looping": false,
+      "description": "Two pins joined by a red string traced across the frame. PICK THIS when the narration mentions a location, an address, an evidence link, or connecting two facts/people.",
+      "size_kb": 2.4
+    },
+    {
+      "id": "fingerprint_reveal",
+      "file": "library/fingerprint_reveal.json",
+      "tags": [
+        "fingerprint",
+        "identity",
+        "suspect",
+        "biometric",
+        "trace",
+        "forensic",
+        "match"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.9,
+      "monochrome_safe": true,
+      "natural_duration_s": 1.8,
+      "looping": false,
+      "description": "Concentric whorls of a fingerprint traced in. PICK THIS when narration mentions a suspect, identity, biometric trace, forensic match, or anything about identifying someone.",
+      "size_kb": 3.4
+    },
+    {
+      "id": "glitch_burst",
+      "file": "library/glitch_burst.json",
+      "tags": [
+        "glitch",
+        "tear",
+        "interference",
+        "shock",
+        "revelation",
+        "punch",
+        "rare"
+      ],
+      "default_blend": "normal",
+      "default_opacity": 0.9,
+      "monochrome_safe": true,
+      "natural_duration_s": 0.6,
+      "looping": false,
+      "description": "Five quick alternating black+white slabs tear across the frame. RESERVE FOR THE STRONGEST REVELATION MOMENTS ONLY \u2014 use sparingly (at most twice per video), never as ambient texture.",
+      "size_kb": 2.9
+    },
+    {
+      "id": "lf_ambient_loader",
+      "file": "library/lf_ambient_loader.json",
+      "tags": [
+        "loader",
+        "ambient",
+        "pulse",
+        "wait",
+        "tension"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.55,
+      "monochrome_safe": true,
+      "natural_duration_s": 10.1,
+      "looping": true,
+      "description": "Slow gradient pulse \u2014 \"investigation in progress\" mood.",
+      "size_kb": 4.4,
+      "source_url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/gradient_sleepy_loader.json"
+    },
+    {
+      "id": "lf_concentric_pulse",
+      "file": "library/lf_concentric_pulse.json",
+      "tags": [
+        "pulse",
+        "ripple",
+        "concentric",
+        "scan",
+        "focus",
+        "ping"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.85,
+      "monochrome_safe": true,
+      "natural_duration_s": 1.3,
+      "looping": true,
+      "description": "Concentric rings pulsing outward from center \u2014 secondary radar ping.",
+      "size_kb": 6.0,
+      "source_url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/material_wave_loading.json"
+    },
+    {
+      "id": "lf_geo_breath",
+      "file": "library/lf_geo_breath.json",
+      "tags": [
+        "geometric",
+        "breath",
+        "tension",
+        "abstract",
+        "atmosphere",
+        "loop"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.5,
+      "monochrome_safe": true,
+      "natural_duration_s": 2.0,
+      "looping": true,
+      "description": "Slow geometric breathing \u2014 adds subtle background tension.",
+      "size_kb": 2.2,
+      "source_url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/abstract_circle.json"
+    },
+    {
+      "id": "lf_glow_pulse",
+      "file": "library/lf_glow_pulse.json",
+      "tags": [
+        "glow",
+        "pulse",
+        "focus",
+        "highlight",
+        "loader",
+        "atmosphere"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.75,
+      "monochrome_safe": true,
+      "natural_duration_s": 2.3,
+      "looping": true,
+      "description": "Pulsing soft glow \u2014 draws the eye to a focal point without distracting.",
+      "size_kb": 15.9,
+      "source_url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/glow_loading.json"
+    },
+    {
+      "id": "lf_radar",
+      "file": "library/lf_radar.json",
+      "tags": [
+        "radar",
+        "scan",
+        "sweep",
+        "hud",
+        "location",
+        "investigation",
+        "lock"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.85,
+      "monochrome_safe": true,
+      "natural_duration_s": 6.0,
+      "looping": true,
+      "description": "Sweeping radar arc with concentric circles \u2014 classic detection / investigation feel.",
+      "size_kb": 30.6,
+      "source_url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/radar.json"
+    },
+    {
+      "id": "lf_smoke_wisp",
+      "file": "library/lf_smoke_wisp.json",
+      "tags": [
+        "smoke",
+        "fog",
+        "atmosphere",
+        "mystery",
+        "wisp",
+        "ambient"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.55,
+      "monochrome_safe": true,
+      "natural_duration_s": 1.3,
+      "looping": true,
+      "description": "Drifting wisp of smoke \u2014 atmospheric tension layer.",
+      "size_kb": 23.3,
+      "source_url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/gradient_smoke.json"
+    },
+    {
+      "id": "lf_sonar_wave",
+      "file": "library/lf_sonar_wave.json",
+      "tags": [
+        "wave",
+        "sonar",
+        "ripple",
+        "detect",
+        "scan",
+        "loop",
+        "atmosphere"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.6,
+      "monochrome_safe": true,
+      "natural_duration_s": 10.0,
+      "looping": true,
+      "description": "Soft horizontal waves rippling outward \u2014 sonar / detection ambient.",
+      "size_kb": 7.6,
+      "source_url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/waves.json"
+    },
+    {
+      "id": "magnifier_sweep",
+      "file": "library/magnifier_sweep.json",
+      "tags": [
+        "magnifier",
+        "zoom",
+        "detail",
+        "scrutiny",
+        "examine",
+        "look closer",
+        "object",
+        "trace"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.9,
+      "monochrome_safe": true,
+      "natural_duration_s": 1.5,
+      "looping": false,
+      "description": "Magnifying glass passing across the frame with a small pulse on the detail. PICK THIS when the narration zooms on a detail, an object, a clue or invites the viewer to look closer.",
+      "size_kb": 2.0
+    },
+    {
+      "id": "radar_ping",
+      "file": "library/radar_ping.json",
+      "tags": [
+        "radar",
+        "ping",
+        "scan",
+        "location",
+        "hud",
+        "alert",
+        "lock"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 1.0,
+      "monochrome_safe": true,
+      "natural_duration_s": 1.5,
+      "looping": false,
+      "description": "Three concentric rings expand from a bright center dot, like a radar lock.",
+      "size_kb": 2.2
+    },
+    {
+      "id": "radar_sweep",
+      "file": "library/radar_sweep.json",
+      "tags": [
+        "radar",
+        "sonar",
+        "scan",
+        "sweep",
+        "search",
+        "investigation",
+        "wide area",
+        "loop"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.85,
+      "monochrome_safe": true,
+      "natural_duration_s": 3.0,
+      "looping": true,
+      "description": "Circular radar/sonar with rotating wedge over 3 s. PICK THIS during searches, wide-area scans, ongoing investigations, or moments where territory/location is being combed.",
+      "size_kb": 2.6
+    },
+    {
+      "id": "redacted_bar",
+      "file": "library/redacted_bar.json",
+      "tags": [
+        "redacted",
+        "censor",
+        "reveal",
+        "secret",
+        "classified"
+      ],
+      "default_blend": "normal",
+      "default_opacity": 1.0,
+      "monochrome_safe": true,
+      "natural_duration_s": 1.5,
+      "looping": false,
+      "description": "Black bar slides in to censor, then slides out.",
+      "size_kb": 0.8
+    },
+    {
+      "id": "redacted_tear",
+      "file": "library/redacted_tear.json",
+      "tags": [
+        "redacted",
+        "censored",
+        "classified",
+        "sealed",
+        "name",
+        "identity",
+        "secret",
+        "tear",
+        "hidden"
+      ],
+      "default_blend": "normal",
+      "default_opacity": 1.0,
+      "monochrome_safe": true,
+      "natural_duration_s": 1.2,
+      "looping": false,
+      "description": "Black redaction bar slides in, jitters, then tears apart vertically. PICK THIS when narration mentions a name kept secret, classified/sealed file, censored information, or a hidden identity.",
+      "size_kb": 1.6
+    },
+    {
+      "id": "scanline_sweep",
+      "file": "library/scanline_sweep.json",
+      "tags": [
+        "scan",
+        "sweep",
+        "hud",
+        "tech",
+        "loop",
+        "atmosphere"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.85,
+      "monochrome_safe": true,
+      "natural_duration_s": 2.0,
+      "looping": true,
+      "description": "Bright horizontal line with soft glow sweeps top to bottom \u2014 techno-investigation feel.",
+      "size_kb": 0.9
+    },
+    {
+      "id": "surveillance_rec",
+      "file": "library/surveillance_rec.json",
+      "tags": [
+        "cctv",
+        "surveillance",
+        "camera",
+        "witness",
+        "watched",
+        "recording",
+        "rec",
+        "observation",
+        "loop"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.95,
+      "monochrome_safe": true,
+      "natural_duration_s": 1.5,
+      "looping": true,
+      "description": "Camera viewfinder with corner brackets and blinking REC indicator, loopable. PICK THIS during CCTV / observation / witness recording moments, or when someone is being watched or filmed.",
+      "size_kb": 3.5
+    },
+    {
+      "id": "vignette_pulse",
+      "file": "library/vignette_pulse.json",
+      "tags": [
+        "vignette",
+        "atmosphere",
+        "pulse",
+        "breath",
+        "tension"
+      ],
+      "default_blend": "multiply",
+      "default_opacity": 0.7,
+      "monochrome_safe": true,
+      "natural_duration_s": 3.0,
+      "looping": true,
+      "description": "Heavy vignette breathing \u2014 wraps the frame in darkness, heightens suspense.",
+      "size_kb": 0.6
+    },
+    {
+      "id": "yurei_mirror_manifestation",
+      "file": "library/yurei_mirror_manifestation.json",
+      "tags": [
+        "yurei",
+        "ghost",
+        "apparition",
+        "mirror",
+        "disappearance",
+        "paranormal",
+        "signature"
+      ],
+      "default_blend": "screen",
+      "default_opacity": 0.68,
+      "monochrome_safe": false,
+      "natural_duration_s": 3.5,
+      "looping": false,
+      "description": "Custom Yurei signature: a white faceless apparition forms in a rear-view mirror, fractures in red, then evaporates into filaments.",
+      "size_kb": 36.7,
+      "source_url": "https://github.com/diffusionstudio/lottie"
+    }
+  ]
+}

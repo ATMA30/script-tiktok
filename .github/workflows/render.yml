@@ -1,0 +1,87 @@
+name: Render TikTok video
+
+on:
+  workflow_dispatch:
+    inputs:
+      projet:
+        description: "Nom du projet (dossier dans projets/). Vide = dernier"
+        required: false
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - "projets/**/script.json"
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install system deps (ffmpeg + Chromium headless deps)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            ffmpeg \
+            libnss3 libatk-bridge2.0-0 libgtk-3-0 libgbm1 libasound2t64 \
+            libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libxshmfence1 \
+            libpangocairo-1.0-0 libcups2 libxss1 libdrm2 fonts-liberation \
+            libu2f-udev xdg-utils
+
+      - name: Install Python deps
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Cache npx HyperFrames + Puppeteer Chromium
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache/puppeteer
+          key: hf-${{ runner.os }}-${{ hashFiles('3_render_hyperframes.py') }}
+
+      - name: Prefetch HyperFrames CLI (warm npx cache)
+        run: npx --yes hyperframes@0.5.7 --help || true
+
+      - name: Generate audio (Gemini or Edge-TTS fallback)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python 2_generate_audio.py
+
+      - name: Render with HyperFrames (headless)
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          USE_SEMANTIC_OVERLAYS: "0"
+          USE_DIRECTOR_AGENT: "0"
+          USE_GENERATIVE_OVERLAYS: "0"
+          USE_AI_OVERLAY_DETECTION: "0"
+        run: |
+          if [ -n "${{ inputs.projet }}" ]; then
+            python 3_render_hyperframes.py --projet "projets/${{ inputs.projet }}"
+          else
+            python 3_render_hyperframes.py
+          fi
+
+      - name: Upload final MP4
+        uses: actions/upload-artifact@v4
+        with:
+          name: tiktok-video-${{ github.run_number }}
+          path: projets/**/final.mp4
+          retention-days: 30
+          if-no-files-found: error

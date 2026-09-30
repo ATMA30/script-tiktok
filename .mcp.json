@@ -1,0 +1,41 @@
+{
+  "//": "Serveurs MCP du projet. RÈGLE D'OR : garde 3 à 6 serveurs ACTIFS max.",
+  "//budget": "Au-delà de ~40-50 outils visibles, Claude choisit le mauvais outil. Moins = plus efficace. Active uniquement l'utile, lecture seule quand c'est possible.",
+  "//install": "Le plus sûr : passe par /plugin (marketplace officiel claude-plugins-official) qui gère la config. Sinon, vérifie la commande exacte sur le dépôt officiel de chaque serveur.",
+  "mcpServers": {
+    "context7": {
+      "//": "INDISPENSABLE. Doc à jour et fidèle à la version d'une lib -> moins de code faux à corriger. Vérifie la commande sur le dépôt officiel Context7.",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "sequential-thinking": {
+      "//": "Raisonnement structuré pour les tâches complexes (planification, debug profond).",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    },
+    "github": {
+      "//": "Issues, PRs, recherche de code. Token au scope minimal. Lecture seule via X-MCP-Readonly si tu n'ouvres pas de PR.",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" }
+    },
+    "filesystem": {
+      "//": "Accès fichiers borné à un dossier précis. Ne pointe jamais la racine du système.",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${PROJECT_DIR}"]
+    },
+    "//—— À activer selon le projet (laisse commenté tant qu'inutile) ——": "",
+    "postgres-readonly": {
+      "//": "DÉSACTIVÉ par défaut. DB en LECTURE SEULE pour inspecter schéma/données sans risque d'écriture.",
+      "//disabled": true,
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "${DATABASE_URL_READONLY}"]
+    },
+    "playwright": {
+      "//": "DÉSACTIVÉ par défaut. Tests UI en langage naturel via une fenêtre Chrome pilotée. Active pour le travail front. Vérifie la commande sur le dépôt @playwright/mcp.",
+      "//disabled": true,
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    }
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "_doc": "Each entry: {url, id, tags, description, natural_duration_s, looping, default_blend, default_opacity, monochrome ('full'|'partial'|'off'), mono_target [r,g,b], force (bool to refresh)}. URLs verified working with curl (no auth needed).",
+  "_sources": [
+    "github.com/LottieFiles/dotlottie-web (fixtures/lottie/, MIT)",
+    "github.com/airbnb/lottie-web (demo/, MIT)"
+  ],
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/radar.json",
+      "id": "lf_radar",
+      "tags": [
+        "radar",
+        "scan",
+        "sweep",
+        "hud",
+        "location",
+        "investigation",
+        "lock"
+      ],
+      "description": "Sweeping radar arc with concentric circles — classic detection / investigation feel.",
+      "natural_duration_s": 6.0,
+      "looping": true,
+      "default_blend": "screen",
+      "default_opacity": 0.85,
+      "monochrome": "full"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/gradient_smoke.json",
+      "id": "lf_smoke_wisp",
+      "tags": [
+        "smoke",
+        "fog",
+        "atmosphere",
+        "mystery",
+        "wisp",
+        "ambient"
+      ],
+      "description": "Drifting wisp of smoke — atmospheric tension layer.",
+      "natural_duration_s": 1.3,
+      "looping": true,
+      "default_blend": "screen",
+      "default_opacity": 0.55,
+      "monochrome": "full"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/glow_loading.json",
+      "id": "lf_glow_pulse",
+      "tags": [
+        "glow",
+        "pulse",
+        "focus",
+        "highlight",
+        "loader",
+        "atmosphere"
+      ],
+      "description": "Pulsing soft glow — draws the eye to a focal point without distracting.",
+      "natural_duration_s": 2.3,
+      "looping": true,
+      "default_blend": "screen",
+      "default_opacity": 0.75,
+      "monochrome": "full"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/waves.json",
+      "id": "lf_sonar_wave",
+      "tags": [
+        "wave",
+        "sonar",
+        "ripple",
+        "detect",
+        "scan",
+        "loop",
+        "atmosphere"
+      ],
+      "description": "Soft horizontal waves rippling outward — sonar / detection ambient.",
+      "natural_duration_s": 10.0,
+      "looping": true,
+      "default_blend": "screen",
+      "default_opacity": 0.6,
+      "monochrome": "full"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/material_wave_loading.json",
+      "id": "lf_concentric_pulse",
+      "tags": [
+        "pulse",
+        "ripple",
+        "concentric",
+        "scan",
+        "focus",
+        "ping"
+      ],
+      "description": "Concentric rings pulsing outward from center — secondary radar ping.",
+      "natural_duration_s": 1.3,
+      "looping": true,
+      "default_blend": "screen",
+      "default_opacity": 0.85,
+      "monochrome": "full"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/abstract_circle.json",
+      "id": "lf_geo_breath",
+      "tags": [
+        "geometric",
+        "breath",
+        "tension",
+        "abstract",
+        "atmosphere",
+        "loop"
+      ],
+      "description": "Slow geometric breathing — adds subtle background tension.",
+      "natural_duration_s": 2.0,
+      "looping": true,
+      "default_blend": "screen",
+      "default_opacity": 0.5,
+      "monochrome": "full"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/LottieFiles/dotlottie-web/main/fixtures/lottie/gradient_sleepy_loader.json",
+      "id": "lf_ambient_loader",
+      "tags": [
+        "loader",
+        "ambient",
+        "pulse",
+        "wait",
+        "tension"
+      ],
+      "description": "Slow gradient pulse — \"investigation in progress\" mood.",
+      "natural_duration_s": 10.1,
+      "looping": true,
+      "default_blend": "screen",
+      "default_opacity": 0.55,
+      "monochrome": "full"
+    }
+  ]
+}

@@ -1,0 +1,97 @@
+{
+  "serie_id": "20260606_193024_Le_Coût_De_La_Confiance",
+  "created_at": "2026-06-06T19:30:24",
+  "status": "validated",
+  "n_episodes": 2,
+  "n_scenes_per_episode": 7,
+  "sujet_initial": "J'ai formé pendant 6 mois la personne qui a pris mon poste. Elle ne le sait pas encore.",
+  "titre": "Le Coût de la Confiance",
+  "logline": "Pendant six mois, j'ai tout donné pour former quelqu'un... sans savoir que je formais mon propre remplaçant.",
+  "premisse": "J'ai formé pendant 6 mois la personne qui a pris mon poste. Elle ne le sait pas encore.",
+  "narrateur": "Lucas, 32 ans, est spécialiste marketing dans une entreprise de taille moyenne. Il avait une stabilité et une confiance en son rôle qu'il croyait inébranlables. Cette expérience lui a fait perdre foi en la transparence des relations professionnelles et l'a forcé à remettre en question sa propre perception de la loyauté.",
+  "narrateur_genre": "masculin",
+  "themes": [
+    "travail",
+    "trahison",
+    "lâcheté",
+    "ambition"
+  ],
+  "situation_socle": {
+    "territoire": "travail",
+    "situation": "Le fait d'être progressivement mis de côté ou remplacé par une nouvelle recrue que vous avez vous-même formée, souvent sous de faux prétextes, par une entreprise qui vous considérait comme acquis.",
+    "question_universelle": "Comment aurais-je pu voir les signes ? Et si j'avais été à leur place, aurais-je agi différemment pour protéger mon poste ou ma conscience ?",
+    "ancrage_quotidien": "Un bureau moderne en open space, rythmé par des réunions Teams/Zoom, des discussions de couloir et des emails incessants."
+  },
+  "personnages": [
+    {
+      "nom": "Chloé",
+      "relation": "Nouvelle recrue que Lucas est chargé de former pour un poste qui, croit-il, viendra compléter le sien. Elle est présentée comme une future collègue.",
+      "description_visuelle": "Young woman, early twenties, with bright, curious eyes and a perpetually neat blonde bob. She often wears sensible, yet stylish, professional attire. Her movements are quick and precise. She carries a distinctive pastel-colored insulated water bottle everywhere.",
+      "detail_inutile": "Elle préparait toujours son déjeuner avec une précision maniaque, dans une boîte bento parfaitement compartimentée, qu'elle mangeait toujours à son bureau.",
+      "contradiction": "Elle était incroyablement sûre d'elle et performante dans ses tâches, mais avait des moments de timidité et de maladresse sociale étonnante lors des pauses café.",
+      "desir_profond": "Prouver sa valeur et sa capacité à réussir dans le monde professionnel, peut-être pour effacer une impression d'échec passée, et trouver un endroit où elle est pleinement reconnue.",
+      "moment_humanite": "Un midi, elle m'a confié qu'elle avait \"tellement peur de ne pas être à la hauteur\" et de devoir \"tout recommencer\" si ça ne marchait pas, avec une sincérité désarmante. J'ai eu envie de la rassurer, et je l'ai fait.",
+      "phrase_signature": "C'est fascinant, comment vous avez géré ça. Je n'y aurais jamais pensé.",
+      "episode_introduction": 1,
+      "episode_detail": 1,
+      "episode_humanite": 1
+    },
+    {
+      "nom": "Antoine",
+      "relation": "Le manager direct de Lucas depuis 4 ans. Ils ont toujours eu une relation professionnelle cordiale, faite de respect mutuel et de non-dits.",
+      "description_visuelle": "Middle-aged man, late forties, with thinning hair combed carefully over his scalp. He usually wears slightly ill-fitting expensive suits, perpetually needing adjustment. His face is often creased with a subtle, anxious frown. He has a habit of unconsciously fiddling with a small wooden puzzle on his desk.",
+      "detail_inutile": "Il avait sur son bureau un petit puzzle en bois complexe qu'il démontait et remontait machinalement pendant les appels difficiles ou quand il réfléchissait intensément.",
+      "contradiction": "Alors qu'il se montrait décisif et autoritaire en réunion, il évitait toujours les confrontations directes et les décisions impopulaires, délégant cette tâche dès que possible.",
+      "desir_profond": "Maintenir sa propre position à tout prix et être perçu comme irréprochable par la direction, quitte à sacrifier ses subordonnés pour éviter les vagues.",
+      "moment_humanite": "Juste avant de m'annoncer la nouvelle, il m'a parlé de la \"pression incroyable\" qu'il subissait de la part de la direction et de la difficulté de faire des \"arbitrages délicats\". Il m'a regardé comme s'il cherchait ma compréhension, presque mon pardon, avant même de parler.",
+      "phrase_signature": "On a des arbitrages à faire, tu comprends.",
+      "episode_introduction": 1,
+      "episode_detail": 1,
+      "episode_humanite": 2
+    }
+  ],
+  "visual_bible": {
+    "Chloé": "Young woman, early twenties, with bright, curious eyes and a perpetually neat blonde bob. She often wears sensible, yet stylish, professional attire. Her movements are quick and precise. She carries a distinctive pastel-colored insulated water bottle everywhere.",
+    "Antoine": "Middle-aged man, late forties, with thinning hair combed carefully over his scalp. He usually wears slightly ill-fitting expensive suits, perpetually needing adjustment. His face is often creased with a subtle, anxious frown. He has a habit of unconsciously fiddling with a small wooden puzzle on his desk."
+  },
+  "episodes": [
+    {
+      "numero": 1,
+      "titre": "La Recrue Parfaite",
+      "resume": "On m'a demandé de former une nouvelle recrue, Chloé, pour renforcer l'équipe. J'ai vu ça comme une opportunité, la preuve que mon département grandissait, que mon rôle était central. J'ai mis tout mon cœur à lui enseigner les ficelles du métier, mes astuces, même mes erreurs passées. Chloé était brillante, posait les bonnes questions, et je commençais à vraiment apprécier sa présence, son petit bento parfait, et sa façon si particulière de s'émerveiller devant chaque procédure. Antoine, mon manager, semblait content de notre collaboration, même s'il jouait souvent avec son puzzle en bois pendant nos points.",
+      "beat_dramatique": "hook/conflit",
+      "cliffhanger": "En sortant de son bureau, Antoine m'a dit qu'il faudrait qu'on fasse le point sur 'les prochaines étapes' pour Chloé. Un truc m'a paru bizarre, mais je n'ai pas su quoi.",
+      "personnages_actifs": [
+        "Lucas",
+        "Chloé",
+        "Antoine"
+      ],
+      "traits_a_revealer": [
+        "Chloé.detail_inutile",
+        "Antoine.detail_inutile",
+        "Chloé.moment_humanite"
+      ],
+      "status": "generated",
+      "project_dir": "projets/20260606_193024_Le_Coût_De_La_Confiance_ep01_La_Recrue_Parfaite",
+      "generated_at": "2026-06-06T21:56:47"
+    },
+    {
+      "numero": 2,
+      "titre": "Les Arbitrages",
+      "resume": "Antoine a convoqué une réunion \"urgente\". Ce n'était pas un point sur Chloé, c'était sur moi. Il m'a annoncé que mon poste était \"repositionné\", en fait supprimé. Chloé était ma remplaçante directe. Tout ce que je lui avais appris en six mois servait à me jeter dehors. Antoine m'a parlé des \"arbitrages à faire, tu comprends\" en bidouillant son puzzle, et a tenté de m'expliquer la \"pression\" qu'il subissait. J'ai repensé aux peurs de Chloé, à ses 'C'est fascinant...' et à son bento parfaitement rangé. La noirceur n'était pas dans la trahison de Chloé, qui ne savait rien, mais dans la lâcheté d'Antoine, et ma propre naïveté d'avoir cru à l'entreprise.",
+      "beat_dramatique": "révélation",
+      "cliffhanger": "Aujourd'hui, quand je croise un manager qui forme un jeune, je me demande toujours qui de lui ou du petit nouveau est le plus aveugle. Et surtout, est-ce qu'on est tous capables de ça, un jour ?",
+      "personnages_actifs": [
+        "Lucas",
+        "Antoine",
+        "Chloé"
+      ],
+      "traits_a_revealer": [
+        "Antoine.moment_humanite"
+      ],
+      "status": "pending",
+      "project_dir": null
+    }
+  ],
+  "validated_at": "2026-06-06T19:30:33"
+}

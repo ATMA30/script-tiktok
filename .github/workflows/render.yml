@@ -12,6 +12,9 @@ on:
     paths:
       - "projets/**/script.json"
 
+permissions:
+  contents: read
+
 jobs:
   render:
     runs-on: ubuntu-latest
@@ -54,7 +57,8 @@ jobs:
           path: |
             ~/.npm
             ~/.cache/puppeteer
-          key: hf-${{ runner.os }}-${{ hashFiles('usine/render/**') }}
+          # Le cache npm/Puppeteer ne dépend que de la version de HyperFrames, pas du code Python.
+          key: hf-${{ runner.os }}-0.5.7
 
       - name: Prefetch HyperFrames CLI (warm npx cache)
         run: npx --yes hyperframes@0.5.7 --help || true
@@ -64,14 +68,19 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python 2_generate_audio.py
 
+      # Pas de GEMINI_API_KEY ici : seul le Director Agent (désactivé) l'utilise au rendu.
+      # inputs.projet passe par l'env (jamais interpolé dans le script shell).
       - name: Render with HyperFrames (headless)
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PROJET: ${{ inputs.projet }}
           USE_SEMANTIC_OVERLAYS: "0"
           USE_DIRECTOR_AGENT: "0"
         run: |
-          if [ -n "${{ inputs.projet }}" ]; then
-            python 3_render_hyperframes.py --projet "projets/${{ inputs.projet }}"
+          if [ -n "$PROJET" ]; then
+            case "$PROJET" in
+              */* | .*) echo "Nom de projet invalide : $PROJET" >&2; exit 1 ;;
+            esac
+            python 3_render_hyperframes.py --projet "projets/$PROJET"
           else
             python 3_render_hyperframes.py
           fi

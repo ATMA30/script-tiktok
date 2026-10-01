@@ -16,8 +16,18 @@ import dotenv
 import pytest
 
 dotenv.load_dotenv = lambda *args, **kwargs: False
+# Aucun réglage ni clé du shell ne doit fuiter dans les tests.
+for _key in [k for k in os.environ if k.startswith("USE_") or k.endswith("_API_KEY")]:
+    del os.environ[_key]
+os.environ.pop("BRAND_LOGO_PATH", None)
 os.environ.update(
-    {"GEMINI_API_KEY": "", "USE_WHISPER_SYNC": "0", "USE_AMBIENT_MUSIC": "0"}
+    {
+        "GEMINI_API_KEY": "",
+        "USE_WHISPER_SYNC": "0",
+        "USE_AMBIENT_MUSIC": "0",
+        # Sinon render_projet régénère les SFX manquants dans le vrai assets/sfx/.
+        "USE_SYNTH_SFX": "0",
+    }
 )
 
 FFPROBE_SHIM = """#!/usr/bin/env python3

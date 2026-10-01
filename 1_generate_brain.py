@@ -498,6 +498,30 @@ class CaseBrief(BaseModel):
     keywords: List[str] = Field(default_factory=list)
 
 
+def _reparer_json_brief(texte: str) -> Optional[dict]:
+    """Remet en forme un brief JSON mal formé, sans recherche (schéma imposé).
+
+    Aucun fait n'est ajouté : Gemini ne fait que convertir le texte reçu.
+    """
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=(
+                "Convertis ce texte en JSON valide conforme au schéma, sans ajouter, "
+                "retirer ni modifier aucun fait, nom, date ou URL :\n\n" + texte
+            ),
+            config=types.GenerateContentConfig(
+                temperature=0.0,
+                response_mime_type="application/json",
+                response_schema=CaseBrief,
+            ),
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print(f"      ⚠️ Remise en forme impossible : {str(e)[:120]}")
+        return None
+
+
 def deep_research(candidate: dict) -> Optional[CaseBrief]:
     """Étape 2 : produit un brief factuel vérifié avec sources sur le candidat retenu.
 
@@ -589,7 +613,14 @@ Return ONLY the JSON object. Every field above must be present. Use empty arrays
             if start < 0 or end <= start:
                 print(f"      ⚠️ Pas de JSON dans la réponse (essai {attempt + 1})")
                 continue
-            data = json.loads(raw[start : end + 1])
+            try:
+                data = json.loads(raw[start : end + 1])
+            except json.JSONDecodeError as e:
+                # google_search interdit le schéma imposé : JSON parfois mal formé.
+                print(f"      🔧 JSON mal formé ({e}) → remise en forme")
+                data = _reparer_json_brief(raw[start : end + 1])
+                if data is None:
+                    continue
             # Fallback : Gemini omet parfois title/year/location alors qu'ils
             # étaient déjà dans le candidat. On les remplit pour éviter le rejet.
             data.setdefault("title", title)

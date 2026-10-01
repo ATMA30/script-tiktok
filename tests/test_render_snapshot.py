@@ -73,3 +73,29 @@ def test_logo_introuvable_repli_sur_le_logo_par_defaut(
     render_dir = pipeline.render_projet(projet_factice, prepare_only=True)
     copie = render_dir / "assets" / "yurei_logo.png"
     assert copie.read_bytes() == pipeline.BRAND_LOGO_DEFAUT.read_bytes()
+
+
+def test_logo_chemin_dossier_repli_sur_le_logo_par_defaut(
+    projet_factice, tmp_path, monkeypatch
+):
+    # Un BRAND_LOGO_PATH qui désigne un dossier ne doit pas faire planter le rendu.
+    from usine.render import pipeline
+
+    monkeypatch.setattr(pipeline, "RENDER_ROOT", tmp_path / "render")
+    monkeypatch.setattr(pipeline, "BRAND_LOGO_PATH", str(tmp_path))
+    render_dir = pipeline.render_projet(projet_factice, prepare_only=True)
+    copie = render_dir / "assets" / "yurei_logo.png"
+    assert copie.read_bytes() == pipeline.BRAND_LOGO_DEFAUT.read_bytes()
+
+
+def test_brand_logo_path_vide_vaut_le_defaut(monkeypatch):
+    import importlib
+
+    from usine.render import config
+
+    monkeypatch.setenv("BRAND_LOGO_PATH", "")
+    try:
+        assert importlib.reload(config).BRAND_LOGO_PATH == str(config.BRAND_LOGO_DEFAUT)
+    finally:
+        monkeypatch.delenv("BRAND_LOGO_PATH")
+        importlib.reload(config)

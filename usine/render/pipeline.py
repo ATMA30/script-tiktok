@@ -105,11 +105,11 @@ def render_projet(projet_dir, do_check=False, prepare_only=False):
     write_hyperframes_project(render_dir)
     if USE_BRAND_LOGO:
         logo_src = Path(BRAND_LOGO_PATH).expanduser().resolve()
-        if not logo_src.exists():
+        if not logo_src.is_file():
             # Ex. ancien BRAND_LOGO_PATH dans le .env, d'avant le rangement d'assets/brand/.
             print(f"   ⚠️ Logo introuvable : {logo_src} → logo par défaut")
             logo_src = BRAND_LOGO_DEFAUT
-        if logo_src.exists():
+        if logo_src.is_file():
             shutil.copy(logo_src, assets_dir / "yurei_logo.png")
             print(f"   ◉ Logo Yūrei intégré : {logo_src.name}")
         else:

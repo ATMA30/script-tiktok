@@ -54,7 +54,8 @@ USE_OUTRO_CTA = os.getenv("USE_OUTRO_CTA", "1") == "1"
 # Logo Yūrei en haut à droite, faible opacité (DESIGN.md)
 USE_BRAND_LOGO = os.getenv("USE_BRAND_LOGO", "1") == "1"
 BRAND_LOGO_DEFAUT = ROOT / "assets" / "brand" / "logo_yurei.png"
-BRAND_LOGO_PATH = os.getenv("BRAND_LOGO_PATH", str(BRAND_LOGO_DEFAUT))
+# Vide ou absent = logo par défaut
+BRAND_LOGO_PATH = os.getenv("BRAND_LOGO_PATH") or str(BRAND_LOGO_DEFAUT)
 USE_SCROLL_HOOK = os.getenv("USE_SCROLL_HOOK", "0") == "1"
 SCROLL_HOOK_TEXT = os.getenv(
     "SCROLL_HOOK_TEXT",

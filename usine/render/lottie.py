@@ -31,6 +31,10 @@ _MANIFEST_PATH = ROOT / "assets" / "lottie" / "manifest.json"
 _LOTTIE_WEB_CDN = (
     "https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"
 )
+# Empreinte SRI : Chromium refuse le script s'il a été modifié sur le CDN.
+_LOTTIE_WEB_SRI = (
+    "sha384-J8C0MvgX4WP58J4N2W99vCKd2J6z99ynOJ5bEfE6jeP7kVTW1drYtv/jzrxM5jbm"
+)
 
 
 def load_manifest() -> dict:
@@ -63,7 +67,10 @@ def lottie_head_html() -> str:
     """Charge lottie-web en script classique, compatible HyperFrames 0.5.7."""
     if not load_manifest().get("assets"):
         return ""
-    return f'<script src="{_LOTTIE_WEB_CDN}"></script>\n'
+    return (
+        f'<script src="{_LOTTIE_WEB_CDN}" integrity="{_LOTTIE_WEB_SRI}" '
+        f'crossorigin="anonymous"></script>\n'
+    )
 
 
 def asset_animation_data(asset_id: str) -> Optional[dict]:

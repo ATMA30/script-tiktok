@@ -466,6 +466,7 @@ class BriefPerson(BaseModel):
     name: str = ""
     role: str = ""
     mineur: bool = False
+    condamnation_definitive: bool = False
 
 
 class BriefEvent(BaseModel):
@@ -558,6 +559,7 @@ ABSOLUTE RULES — read every word:
    "instruction en cours", "non élucidé" or "acquittement / non-lieu". Check the most recent court decision.
 9. For each person, `role` must be precise, in French: victime, témoin, enquêteur, magistrat, suspect, mis en examen,
    condamné, acquitté, membre de la famille. Set `mineur` to true if the person was under 18 at the time of the events.
+   Set `condamnation_definitive` to true ONLY for a person whose conviction is final (no appeal or cassation pending).
 10. For French cases, prefer French sources (Le Monde, Le Parisien, Ouest-France, franceinfo, AFP, regional press).
 
 OUTPUT FORMAT — STRICT JSON, no markdown, no preamble. Use exactly these field names:
@@ -568,7 +570,7 @@ OUTPUT FORMAT — STRICT JSON, no markdown, no preamble. Use exactly these field
   "location": "{location}",
   "summary": "200-300 mots en français, neutre, faits vérifiés uniquement.",
   "people": [
-    {{ "name": "Nom complet", "role": "victime|témoin|enquêteur|suspect|mis en examen|condamné|acquitté|membre famille", "mineur": false }}
+    {{ "name": "Nom complet", "role": "victime|témoin|enquêteur|suspect|mis en examen|condamné|acquitté|membre famille", "mineur": false, "condamnation_definitive": false }}
   ],
   "timeline": [
     {{ "when": "1977-08-30 ou 'fin août 1977'", "what": "Événement factuel concret." }}
@@ -664,11 +666,11 @@ def generer_script(niche: str, brief: CaseBrief) -> Optional[dict]:
     sont vérifiés après génération : un script qui nomme un mineur ou une personne
     non condamnée définitivement est régénéré, puis rejeté.
     """
-    a_taire = personnes_a_taire(
-        [p.model_dump() for p in brief.people], brief.statut_judiciaire
-    )
+    a_taire = personnes_a_taire([p.model_dump() for p in brief.people])
     people_lines = "\n".join(
-        f"  - {p.name} ({p.role}{', mineur' if p.mineur else ''})" for p in brief.people
+        f"  - {p.name} ({p.role}{', mineur' if p.mineur else ''}"
+        f"{', condamnation définitive' if p.condamnation_definitive else ''})"
+        for p in brief.people
     )
     timeline_lines = "\n".join(f"  - {e.when} : {e.what}" for e in brief.timeline)
     evidence_lines = "\n".join(f"  - {ev}" for ev in brief.evidence)
@@ -756,9 +758,15 @@ RÈGLES ANCRAGE FACTUEL :
             )
 
             script_data = json.loads(response.text)
+            if not isinstance(script_data, dict):
+                raise ValueError("la réponse n'est pas un objet JSON")
+            nb_scenes = len(script_data.get("scenes") or [])
+            if nb_scenes != 10:
+                raise ValueError(f"{nb_scenes} scène(s) au lieu de 10")
         except Exception as e:
             print(f"   ⚠️ Erreur génération/parsing (essai {attempt + 1}) : {e}")
-            time.sleep(3)
+            if attempt < 2:
+                time.sleep(3)
             continue
 
         violations = verifier_script(script_data, a_taire)
@@ -896,7 +904,13 @@ def creer_projet(niche: str = None) -> Optional[str]:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     nom_projet = f"{timestamp}_{nom_base}"
     dossier = f"projets/{nom_projet}"
-    os.makedirs(f"{dossier}/audio/sfx", exist_ok=True)
+    # Jamais de fusion avec un dossier existant (deux runs dans la même seconde)
+    suffixe = 1
+    while os.path.exists(dossier):
+        suffixe += 1
+        dossier = f"projets/{nom_projet}_{suffixe}"
+    nom_projet = os.path.basename(dossier)
+    os.makedirs(f"{dossier}/audio/sfx")
 
     print(f"\n{'═' * 55}")
     print(f"  🎬 NOUVEAU PROJET : {nom_projet}")
@@ -965,5 +979,10 @@ if __name__ == "__main__":
 
     ap = argparse.ArgumentParser()
     ap.add_argument("--sujet", help="Affaire précise (sinon recherche en ligne)")
+    ap.add_argument("--sortie", help="Fichier où écrire le chemin du projet créé")
     args = ap.parse_args()
-    sys.exit(0 if creer_projet(args.sujet) else 1)
+    dossier = creer_projet(args.sujet)
+    if dossier and args.sortie:
+        with open(args.sortie, "w", encoding="utf-8") as f:
+            f.write(dossier)
+    sys.exit(0 if dossier else 1)

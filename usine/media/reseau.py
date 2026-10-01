@@ -5,7 +5,8 @@ Garde-fous :
 - refus des hôtes qui résolvent vers une IP privée, locale ou réservée,
   y compris après une redirection (redirections suivies à la main) ;
 - taille maximale (Content-Length puis compteur pendant la lecture) ;
-- durée totale maximale, en plus du timeout de chaque lecture ;
+- durée totale maximale : un minuteur ferme la connexion à l'échéance, même si
+  le serveur envoie quelques octets juste sous le timeout de lecture ;
 - type de contenu attendu.
 
 Limite connue : l'adresse est vérifiée avant la requête, pas sur la socket
@@ -15,6 +16,7 @@ Limite connue : l'adresse est vérifiée avant la requête, pas sur la socket
 import ipaddress
 import os
 import socket
+import threading
 import time
 from urllib.parse import urljoin, urlparse
 
@@ -22,7 +24,16 @@ import requests
 
 MAX_OCTETS_IMAGE = 25 * 1024 * 1024
 MAX_OCTETS_VIDEO = 150 * 1024 * 1024
-TYPES_IMAGE = ("image/jpeg", "image/jpg", "image/png", "image/webp")
+# octet-stream : certains CDN servent ainsi des images ; le décodage reste limité
+# à JPEG/PNG/WEBP par Pillow (FORMATS_IMAGE).
+TYPES_IMAGE = (
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/webp",
+    "application/octet-stream",
+    "binary/octet-stream",
+)
 TYPES_VIDEO = ("video/mp4",)
 MAX_REDIRECTIONS = 5
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
@@ -34,15 +45,17 @@ class TelechargementRefuse(Exception):
 
 def verifier_url(url):
     """Lève TelechargementRefuse si l'URL n'est pas HTTPS ou vise une adresse interne."""
-    parsed = urlparse(url)
-    if parsed.scheme != "https":
-        raise TelechargementRefuse(f"schéma refusé ({parsed.scheme or 'aucun'})")
-    if not parsed.hostname:
-        raise TelechargementRefuse("hôte manquant")
     try:
+        parsed = urlparse(url)
+        if parsed.scheme != "https":
+            raise TelechargementRefuse(f"schéma refusé ({parsed.scheme or 'aucun'})")
+        if not parsed.hostname:
+            raise TelechargementRefuse("hôte manquant")
         infos = socket.getaddrinfo(parsed.hostname, parsed.port or 443)
-    except socket.gaierror as e:
-        raise TelechargementRefuse(f"résolution DNS impossible ({e})") from e
+    except TelechargementRefuse:
+        raise
+    except (OSError, ValueError) as e:  # gaierror, UnicodeError (IDNA), port invalide
+        raise TelechargementRefuse(f"URL inutilisable ({e})") from e
     for info in infos:
         ip = ipaddress.ip_address(info[4][0])
         if not ip.is_global or ip.is_multicast:
@@ -82,8 +95,14 @@ def telecharger_vers_fichier(
     temporaire = f"{chemin}.part"
     entetes = {"User-Agent": USER_AGENT, **(headers or {})}
     debut = time.monotonic()
+    minuteur = None
     try:
         resp = _ouvrir(url, entetes, timeout)
+        # Échéance globale : fermer la réponse débloque iter_content.
+        restant = max(0.0, duree_max - (time.monotonic() - debut))
+        minuteur = threading.Timer(restant, resp.close)
+        minuteur.daemon = True
+        minuteur.start()
         with resp:
             if resp.status_code != 200:
                 raise TelechargementRefuse(f"HTTP {resp.status_code}")
@@ -95,17 +114,32 @@ def telecharger_vers_fichier(
                 raise TelechargementRefuse(f"trop volumineux ({int(annonce)} octets)")
             recus = 0
             with open(temporaire, "wb") as f:
-                for morceau in resp.iter_content(65536):
-                    recus += len(morceau)
-                    if recus > max_octets:
-                        raise TelechargementRefuse(f"dépasse {max_octets} octets")
-                    if time.monotonic() - debut > duree_max:
-                        raise TelechargementRefuse(f"plus de {duree_max} s")
-                    f.write(morceau)
+                try:
+                    for morceau in resp.iter_content(16384):
+                        recus += len(morceau)
+                        if recus > max_octets:
+                            raise TelechargementRefuse(f"dépasse {max_octets} octets")
+                        if time.monotonic() - debut > duree_max:
+                            raise TelechargementRefuse(f"plus de {duree_max} s")
+                        f.write(morceau)
+                except TelechargementRefuse:
+                    raise
+                except Exception as e:
+                    if not minuteur.is_alive():
+                        raise TelechargementRefuse(f"plus de {duree_max} s") from e
+                    raise
         os.replace(temporaire, chemin)
         return True
-    except (TelechargementRefuse, requests.RequestException, OSError) as e:
+    except (TelechargementRefuse, requests.RequestException, ValueError) as e:
         print(f"      🚫 Téléchargement refusé : {e}")
+    except Exception as e:  # OSError (disque), erreurs de lecture d'un flux fermé…
+        print(f"      ⚠️ Téléchargement impossible : {type(e).__name__}: {e}")
+    finally:
+        if minuteur is not None:
+            minuteur.cancel()
+    try:
         if os.path.exists(temporaire):
             os.remove(temporaire)
-        return False
+    except OSError:
+        pass
+    return False

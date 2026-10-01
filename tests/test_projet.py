@@ -6,6 +6,8 @@ import os
 import time
 from pathlib import Path
 
+import pytest
+
 from usine.utils import trouver_dernier_projet
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -184,3 +186,74 @@ def test_validate_project_signale_un_dossier_non_valide(tmp_path, capsys):
     projet = _projet_minimal(tmp_path, "p", statut="a_valider")
     validate_project(projet)
     assert "non validé" in capsys.readouterr().out
+
+
+def test_reponse_partielle_ne_valide_pas(tmp_path, monkeypatch):
+    # Régression : seule la 1re lettre était lue, « voir le détail » validait.
+    usine = _charger_script("0_usine.py")
+    entrees = iter(["voir le détail", "valider"])
+    questions = []
+    monkeypatch.setattr(
+        "builtins.input", lambda q: questions.append(q) or next(entrees)
+    )
+    assert usine.demander("?", ("valider", "abandonner")) == "valider"
+    assert len(questions) == 2
+
+
+def test_entree_fermee_laisse_le_dossier_a_valider(tmp_path, monkeypatch):
+    from usine.projet import statut_validation
+
+    projet = _projet_minimal(tmp_path, "p", statut="a_valider")
+    usine = _charger_script("0_usine.py")
+
+    def _eof(_q):
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", _eof)
+    monkeypatch.setattr(usine, "generer_dossier", lambda sujet=None: str(projet))
+    monkeypatch.setattr(
+        usine, "produire", lambda p: pytest.fail("ne doit pas produire")
+    )
+    assert usine.traiter_un_dossier() is False
+    assert statut_validation(projet) == "a_valider"
+
+
+def test_rejet_retire_le_sujet_de_la_memoire(tmp_path):
+    import json
+
+    from usine.projet import retirer_de_la_memoire
+
+    memoire = tmp_path / "memoire.json"
+    memoire.write_text(
+        json.dumps({"subjects": [{"project_id": "p1"}, {"project_id": "p2"}]})
+    )
+    assert retirer_de_la_memoire(tmp_path / "projets" / "p1", memoire) is True
+    assert json.loads(memoire.read_text())["subjects"] == [{"project_id": "p2"}]
+    assert retirer_de_la_memoire(tmp_path / "projets" / "absent", memoire) is False
+
+
+def test_cli_projet_exige_la_validation(tmp_path):
+    from usine.projet import main
+
+    assert main([str(_projet_minimal(tmp_path, "ok", statut="valide"))]) == 0
+    assert main([str(_projet_minimal(tmp_path, "ko", statut="a_valider"))]) == 1
+    assert main([str(tmp_path / "absent")]) == 1
+
+
+def test_rendu_refuse_un_projet_non_valide(tmp_path, monkeypatch):
+    import sys
+
+    from usine.render import pipeline
+
+    projet = _projet_minimal(tmp_path, "p", statut="a_valider")
+    rendus = []
+    monkeypatch.setattr(pipeline, "render_projet", lambda p, **kw: rendus.append(kw))
+    monkeypatch.setattr(sys, "argv", ["3_render", "--projet", str(projet)])
+    with pytest.raises(SystemExit, match="non validé"):
+        pipeline.main()
+    # L'aperçu HTML reste possible (aucune vidéo produite)
+    monkeypatch.setattr(
+        sys, "argv", ["3_render", "--projet", str(projet), "--prepare-only"]
+    )
+    pipeline.main()
+    assert rendus == [{"do_check": False, "prepare_only": True}]

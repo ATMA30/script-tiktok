@@ -63,10 +63,28 @@ jobs:
       - name: Prefetch HyperFrames CLI (warm npx cache)
         run: npx --yes hyperframes@0.5.7 --help || true
 
+      # Porte de validation : rien n'est généré ni rendu pour un projet non validé.
+      - name: Check project is validated
+        env:
+          PROJET: ${{ inputs.projet }}
+        run: |
+          if [ -n "$PROJET" ]; then
+            case "$PROJET" in
+              */* | .*) echo "Nom de projet invalide : $PROJET" >&2; exit 1 ;;
+            esac
+            python -m usine.projet "projets/$PROJET"
+          else
+            python -m usine.projet
+          fi
+
       - name: Generate audio (Gemini or Edge-TTS fallback)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python 2_generate_audio.py
+          PROJET: ${{ inputs.projet }}
+        run: |
+          # Même projet que l'étape de rendu (sinon : le dernier de projets/)
+          if [ -n "$PROJET" ]; then export FORCE_PROJET="projets/$PROJET"; fi
+          python 2_generate_audio.py
 
       # Pas de GEMINI_API_KEY ici : seul le Director Agent (désactivé) l'utilise au rendu.
       # inputs.projet passe par l'env (jamais interpolé dans le script shell).

@@ -11,41 +11,62 @@ Rien n'est rendu sans validation : on parle de vraies personnes.
 """
 
 import argparse
-import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from batch_produce import produire
-from usine.projet import REJETE, VALIDE, marquer, resume_dossier, statut_validation
+from usine.projet import (
+    REJETE,
+    VALIDE,
+    marquer,
+    resume_dossier,
+    retirer_de_la_memoire,
+    statut_validation,
+)
 
 ROOT = Path(__file__).resolve().parent
 
 
-def _projets_existants():
-    dossier = ROOT / "projets"
-    return {p for p in dossier.iterdir() if p.is_dir()} if dossier.is_dir() else set()
-
-
 def generer_dossier(sujet=None):
     """Lance le cerveau et renvoie le chemin du nouveau projet (ou None)."""
-    avant = _projets_existants()
-    cmd = [sys.executable, "1_generate_brain.py"] + (
-        ["--sujet", sujet] if sujet else []
-    )
-    if subprocess.run(cmd, cwd=ROOT).returncode != 0:
-        return None
-    nouveaux = sorted(_projets_existants() - avant, key=lambda p: p.stat().st_mtime)
-    return os.path.relpath(nouveaux[-1], ROOT) if nouveaux else None
+    with tempfile.TemporaryDirectory() as tmp:
+        sortie = Path(tmp) / "projet.txt"
+        cmd = [sys.executable, "1_generate_brain.py", "--sortie", str(sortie)]
+        if sujet:
+            cmd += ["--sujet", sujet]
+        if subprocess.run(cmd, cwd=ROOT).returncode != 0 or not sortie.exists():
+            return None
+        chemin = sortie.read_text(encoding="utf-8").strip()
+        return str(ROOT / chemin) if chemin else None
+
+
+# Réponses acceptées, en mot entier : « voir le détail » ne valide rien.
+REPONSES = {
+    "valider": {"v", "valider", "o", "oui"},
+    "regenerer": {"r", "regenerer", "régénérer"},
+    "abandonner": {"a", "abandonner", "n", "non"},
+}
 
 
 def demander(question, choix):
-    """Pose une question jusqu'à obtenir une des réponses de `choix`."""
+    """Pose la question jusqu'à une réponse de `choix` (clés de REPONSES).
+
+    Renvoie None si l'entrée est fermée (mode non interactif) ou interrompue.
+    """
     while True:
-        reponse = input(f"\n👉 {question} ").strip().lower()[:1]
-        if reponse in choix:
-            return reponse
-        print(f"   Réponds par : {' / '.join(choix)}")
+        try:
+            saisie = input(f"\n👉 {question} ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\n⏸️  Pas de réponse : le dossier reste « a_valider ».")
+            return None
+        for cle in choix:
+            if saisie in REPONSES[cle]:
+                return cle
+        print(
+            f"   Réponds par : {' / '.join(sorted(min(REPONSES[c], key=len) for c in choix))}"
+        )
 
 
 def valider_et_produire(projet):
@@ -64,12 +85,16 @@ def traiter_un_dossier(sujet=None):
         print("\n" + resume_dossier(projet))
         reponse = demander(
             "Valider ce dossier ? [v]alider / [r]égénérer / [a]bandonner >",
-            ("v", "r", "a"),
+            ("valider", "regenerer", "abandonner"),
         )
-        if reponse == "v":
+        if reponse is None:
+            print(f"   Plus tard : python 0_usine.py --valider {projet}")
+            return False
+        if reponse == "valider":
             return valider_et_produire(projet)
         marquer(projet, REJETE)
-        if reponse == "a":
+        retirer_de_la_memoire(projet, ROOT / "projets" / ".subjects_memory.json")
+        if reponse == "abandonner":
             print(f"\n🗂️  Dossier abandonné (gardé, non validé) : {projet}")
             return False
         print("\n🔁 Nouvelle génération…")
@@ -78,9 +103,13 @@ def traiter_un_dossier(sujet=None):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0].strip())
     ap.add_argument("--sujet", help="Affaire précise (sinon recherche en ligne)")
-    ap.add_argument("--n", type=int, default=1, help="Nombre de dossiers à produire")
+    ap.add_argument(
+        "--n", type=int, default=1, help="Nombre de dossiers à produire (≥ 1)"
+    )
     ap.add_argument("--valider", metavar="PROJET", help="Valide un dossier existant")
     args = ap.parse_args(argv)
+    if args.n < 1:
+        ap.error("--n doit valoir au moins 1")
 
     if args.valider:
         if not (Path(args.valider) / "script.json").exists():
@@ -90,9 +119,11 @@ def main(argv=None):
         statut = statut_validation(args.valider) or "sans statut"
         reponse = demander(
             f"Statut actuel : {statut}. Valider et produire ? [o]ui / [n]on >",
-            ("o", "n"),
+            ("valider", "abandonner"),
         )
-        if reponse == "n":
+        if reponse is None:
+            return 1
+        if reponse == "abandonner":
             return 0
         return 0 if valider_et_produire(args.valider) else 1
 

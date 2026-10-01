@@ -67,3 +67,28 @@ def test_ffmpeg_accepte_le_graphe(musique, tmp_path):
     ]
     r = subprocess.run(cmd, capture_output=True, text=True)
     assert r.returncode == 0, r.stderr
+
+
+def test_mixage_rate_ne_laisse_aucun_final_mp4(tmp_path, monkeypatch):
+    # Un final.mp4 partiel serait pris pour « terminé » par batch_produce.
+    from types import SimpleNamespace
+
+    from usine.render import audio
+
+    (tmp_path / "audio").mkdir()
+    (tmp_path / "audio" / "scene_1.wav").write_bytes(b"RIFF")
+    rendu = tmp_path / "rendu.mp4"
+    rendu.write_bytes(b"video")
+    final = tmp_path / "final.mp4"
+
+    def _ffmpeg_ko(cmd, **kwargs):
+        sortie = cmd[-1]
+        if sortie.endswith(".mixage.mp4"):
+            open(sortie, "wb").write(b"partiel")  # ffmpeg écrit puis échoue
+        return SimpleNamespace(returncode=1, stderr="échec simulé")
+
+    monkeypatch.setattr(audio.subprocess, "run", _ffmpeg_ko)
+    with pytest.raises(RuntimeError, match="Mixage audio"):
+        audio.mix_audio_post_render(tmp_path, rendu, final, [{"voice_start": 0}], 1.0)
+    assert not final.exists()
+    assert not list(tmp_path.glob("*.mixage.mp4"))

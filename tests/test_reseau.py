@@ -136,3 +136,52 @@ def test_type_de_contenu_refuse(dns, http, tmp_path):
     assert not reseau.telecharger_vers_fichier(
         "https://exemple.com/a.jpg", str(tmp_path / "x")
     )
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://" + "a" * 70 + ".com/x.jpg",
+        "https://../x.jpg",
+        "https://exemple.com:99999/x",
+    ],
+)
+def test_url_malformee_refusee_sans_planter(dns, http, tmp_path, url):
+    # Régression : UnicodeError (IDNA) et port invalide remontaient à l'appelant.
+    assert not reseau.telecharger_vers_fichier(url, str(tmp_path / "x"))
+
+
+def test_octet_stream_accepte_pour_les_images(dns, http, tmp_path):
+    reponses, _ = http
+    reponses["https://exemple.com/a"] = _Reponse(
+        headers={"Content-Type": "application/octet-stream"}
+    )
+    assert reseau.telecharger_vers_fichier("https://exemple.com/a", str(tmp_path / "x"))
+
+
+def test_serveur_goutte_a_goutte_coupe_a_l_echeance(dns, http, tmp_path):
+    import threading
+    import time
+
+    class _Lent(_Reponse):
+        def __init__(self):
+            super().__init__()
+            self._ferme = threading.Event()
+
+        def close(self):
+            self._ferme.set()
+
+        def iter_content(self, taille):
+            yield b"x"
+            # Bloque comme une lecture réseau tant que la connexion n'est pas fermée.
+            self._ferme.wait(10)
+            raise AttributeError("'NoneType' object has no attribute 'read'")
+
+    reponses, _ = http
+    reponses["https://exemple.com/a.jpg"] = _Lent()
+    debut = time.monotonic()
+    ok = reseau.telecharger_vers_fichier(
+        "https://exemple.com/a.jpg", str(tmp_path / "x"), duree_max=0.3
+    )
+    assert not ok and time.monotonic() - debut < 3
+    assert not (tmp_path / "x.part").exists()

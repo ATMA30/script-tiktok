@@ -350,6 +350,9 @@ def mix_audio_post_render(
     else:
         print("   ℹ️  Pas de musique d'ambiance : voix + SFX seulement")
 
+    temporaire = Path(final_mp4_path).with_name(
+        f"{Path(final_mp4_path).stem}.mixage.mp4"
+    )
     cmd = [
         "ffmpeg",
         "-y",
@@ -372,15 +375,18 @@ def mix_audio_post_render(
             "-b:a",
             "192k",
             "-shortest",
-            str(final_mp4_path),
+            str(temporaire),
         ]
     )
 
     print(f"   🏃 Commande FFmpeg : {' '.join(cmd)}")
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
+        temporaire.unlink(missing_ok=True)
         # Pas de repli sur le rendu HyperFrames : sa piste voix est à volume 0,
         # la vidéo sortirait sans narration.
         raise RuntimeError(f"Mixage audio FFmpeg échoué :\n{r.stderr[-1500:]}")
+    # final.mp4 n'apparaît qu'une fois complet : le batch saute les projets qui en ont un.
+    temporaire.replace(final_mp4_path)
     print("   ✅ Audio mixé avec succès (sidechain compress appliqué)")
     normalize_loudness_master(final_mp4_path)

@@ -5,6 +5,7 @@ import json
 import shutil
 import subprocess
 from pathlib import Path
+from usine.projet import est_valide, statut_validation
 from usine.utils import trouver_dernier_projet
 from usine.render.alignment import align_scene_words
 from usine.render.audio import (
@@ -383,6 +384,14 @@ def main():
     projet = args.projet or trouver_dernier_projet()
     if not projet:
         raise SystemExit("Aucun projet trouvé.")
+    # Porte de validation : aucune vidéo sur de vraies personnes sans relecture.
+    # --prepare-only reste libre (aperçu HTML, aucune vidéo produite).
+    if not args.prepare_only and not est_valide(projet):
+        statut = statut_validation(projet) or "sans statut"
+        raise SystemExit(
+            f"⛔ Projet non validé ({statut}) : {projet}\n"
+            f"   Relis-le puis : python 0_usine.py --valider {projet}"
+        )
     render_projet(
         projet,
         do_check=args.check,

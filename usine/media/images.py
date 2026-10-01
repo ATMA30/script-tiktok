@@ -3,7 +3,7 @@
 import os
 import random
 import shutil
-from usine.media.config import FORCE_MONOCHROME_MEDIA, TARGET_H, TARGET_W
+from usine.media.config import FORCE_MONOCHROME_MEDIA, FORMATS_IMAGE, TARGET_H, TARGET_W
 from usine.media.validation import image_est_trop_noire
 
 
@@ -44,7 +44,7 @@ def normaliser_image(chemin_jpg: str) -> bool:
         return False
 
     try:
-        with Image.open(chemin_jpg) as im:
+        with Image.open(chemin_jpg, formats=FORMATS_IMAGE) as im:
             w, h = im.size
             # Déterminer la méthode d'échantillonnage de manière compatible PIL ancienne et moderne
             resample_filter = getattr(Image, "Resampling", Image).LANCZOS

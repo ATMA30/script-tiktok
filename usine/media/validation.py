@@ -2,7 +2,12 @@
 
 import os
 import re
-from usine.media.config import NSFW_URL_BLACKLIST, STRICT_REAL_VALIDATION, gemini_client
+from usine.media.config import (
+    FORMATS_IMAGE,
+    NSFW_URL_BLACKLIST,
+    STRICT_REAL_VALIDATION,
+    gemini_client,
+)
 
 try:
     from google.genai import types
@@ -40,11 +45,12 @@ def verifier_securite_image(chemin_jpg: str) -> bool:
     Retourne True si l'image est SAFE, False si elle doit être rejetée.
     """
     if not gemini_client:
-        return True  # Sans IA, on suppose que la blacklist d'URL a déjà filtré
+        print("      🛡️ Sécurité : Gemini indisponible -> rejeté par précaution")
+        return False
     try:
         from PIL import Image
 
-        with Image.open(chemin_jpg) as im:
+        with Image.open(chemin_jpg, formats=FORMATS_IMAGE) as im:
             prompt = (
                 "Analyze this image carefully for safety and appropriateness. This image is for a professional documentary.\n"
                 "You must perform a strict safety check.\n"
@@ -104,7 +110,7 @@ def valider_image_historique(
     try:
         from PIL import Image
 
-        with Image.open(chemin_jpg) as im:
+        with Image.open(chemin_jpg, formats=FORMATS_IMAGE) as im:
             context_block = contexte_validation_media(
                 context_histoire, query, scene_text, veo_prompt
             )
@@ -171,55 +177,13 @@ def valider_media_cache(
 
     query = queries[0] if queries else "dark mystery atmosphere"
     chemin_valider = chemin_media
-    est_video = chemin_media.lower().endswith(".mp4")
     temp_jpg = None
 
-    if est_video:
-        temp_jpg = chemin_media + ".temp_val.jpg"
-        import subprocess
-
-        try:
-            cmd = [
-                "ffmpeg",
-                "-y",
-                "-i",
-                chemin_media,
-                "-ss",
-                "00:00:01.5",
-                "-vframes",
-                "1",
-                temp_jpg,
-            ]
-            subprocess.run(
-                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5
-            )
-            if os.path.exists(temp_jpg) and os.path.getsize(temp_jpg) > 1000:
-                chemin_valider = temp_jpg
-            else:
-                cmd = [
-                    "ffmpeg",
-                    "-y",
-                    "-i",
-                    chemin_media,
-                    "-ss",
-                    "00:00:00",
-                    "-vframes",
-                    "1",
-                    temp_jpg,
-                ]
-                subprocess.run(
-                    cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5
-                )
-                if os.path.exists(temp_jpg) and os.path.getsize(temp_jpg) > 1000:
-                    chemin_valider = temp_jpg
-                else:
-                    print(
-                        f"      ⚠️ Impossible d'extraire une frame de la vidéo {os.path.basename(chemin_media)} — rejetée par sécurité"
-                    )
-                    return False
-        except Exception as e:
-            print(f"      ⚠️ Échec extraction frame vidéo : {e}")
+    if chemin_media.lower().endswith(".mp4"):
+        temp_jpg = _extraire_frame_video(chemin_media)
+        if not temp_jpg:
             return False
+        chemin_valider = temp_jpg
 
     try:
         if STRICT_REAL_VALIDATION:
@@ -240,6 +204,44 @@ def valider_media_cache(
         return False
 
 
+def _extraire_frame_video(chemin_media: str):
+    """Extrait une frame JPEG d'une vidéo (à 1,5 s, sinon à 0 s). Renvoie son chemin ou None."""
+    import subprocess
+
+    temp_jpg = chemin_media + ".temp_val.jpg"
+    try:
+        for instant in ("00:00:01.5", "00:00:00"):
+            cmd = ["ffmpeg", "-y", "-i", chemin_media]
+            cmd += ["-ss", instant, "-vframes", "1", temp_jpg]
+            subprocess.run(
+                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5
+            )
+            if os.path.exists(temp_jpg) and os.path.getsize(temp_jpg) > 1000:
+                return temp_jpg
+        print(
+            f"      ⚠️ Impossible d'extraire une frame de la vidéo {os.path.basename(chemin_media)} — rejetée par sécurité"
+        )
+    except Exception as e:
+        print(f"      ⚠️ Échec extraction frame vidéo : {e}")
+    if os.path.exists(temp_jpg):
+        os.remove(temp_jpg)
+    return None
+
+
+def verifier_securite_media(chemin_media: str) -> bool:
+    """Contrôle NSFW d'une image, ou d'une vidéo via une frame extraite."""
+    if not chemin_media.lower().endswith(".mp4"):
+        return verifier_securite_image(chemin_media)
+    frame = _extraire_frame_video(chemin_media)
+    if not frame:
+        return False
+    try:
+        return verifier_securite_image(frame)
+    finally:
+        if os.path.exists(frame):
+            os.remove(frame)
+
+
 def auditer_et_nettoyer_cache(
     dossier_projet: str, visual_plan: dict, context_histoire: str
 ):
@@ -248,8 +250,14 @@ def auditer_et_nettoyer_cache(
     print("  🛡️  AUDIT DE SÉCURITÉ & PERTINENCE DU CACHE EXISTANT")
     print("═" * 56)
 
+    if not gemini_client:
+        # Sans Gemini, chaque média serait jugé invalide : on n'efface rien.
+        print("  ⚠️ Gemini indisponible : audit du cache ignoré (rien n'est supprimé)")
+        return
+
     suppr_count = 0
     total_count = 0
+    racine_projet = os.path.abspath(dossier_projet)
 
     for scene_key, plans in visual_plan.items():
         for i, plan in enumerate(plans):
@@ -257,11 +265,12 @@ def auditer_et_nettoyer_cache(
             if not file_path:
                 continue
 
-            full_path = file_path
-            if not os.path.isabs(full_path):
-                full_path = os.path.join(
-                    "/Users/melchioraholou/Documents/script-tiktok", file_path
-                )
+            # Chemins relatifs au dossier de travail, comme dans le reste du fetcher.
+            # On ne supprime jamais rien en dehors du dossier du projet.
+            full_path = os.path.abspath(file_path)
+            if os.path.commonpath([racine_projet, full_path]) != racine_projet:
+                print(f"   ⚠️ Média hors du projet, ignoré : {file_path}")
+                continue
 
             if os.path.exists(full_path):
                 total_count += 1
@@ -322,7 +331,7 @@ def image_est_trop_noire(chemin_jpg: str) -> bool:
     try:
         from PIL import Image, ImageStat
 
-        with Image.open(chemin_jpg) as im:
+        with Image.open(chemin_jpg, formats=FORMATS_IMAGE) as im:
             im = im.convert("L").resize((32, 56))
             mean = ImageStat.Stat(im).mean[0]
             return mean < 18

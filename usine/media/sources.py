@@ -22,6 +22,7 @@ from usine.media.validation import (
     url_est_suspecte,
     valider_image_historique,
     verifier_securite_image,
+    verifier_securite_media,
 )
 
 USED_SOURCE_URLS = set()
@@ -81,10 +82,12 @@ def telecharger_pexels_video(query: str, chemin_mp4: str) -> bool:
         return False
     try:
         clean_q = re.sub(r"[^\w\s]", " ", query).strip()
-        url = f"https://api.pexels.com/videos/search?query={clean_q}&per_page=5&orientation=portrait"
         print(f"      🔍 Pexels Video Search : '{clean_q}'")
         r = requests.get(
-            url, headers={"Authorization": PEXELS_API_KEY}, timeout=15
+            "https://api.pexels.com/videos/search",
+            params={"query": clean_q, "per_page": 5, "orientation": "portrait"},
+            headers={"Authorization": PEXELS_API_KEY},
+            timeout=15,
         ).json()
         videos = r.get("videos", [])
         if videos:
@@ -115,6 +118,9 @@ def telecharger_pexels_video(query: str, chemin_mp4: str) -> bool:
                         for chunk in resp.iter_content(65536):
                             f.write(chunk)
                     if os.path.getsize(chemin_mp4) > 50000:
+                        if not verifier_securite_media(chemin_mp4):
+                            os.remove(chemin_mp4)
+                            return False
                         print(
                             f"      🎥 [Pexels Video] Vidéo téléchargée -> {os.path.basename(chemin_mp4)}"
                         )
@@ -129,7 +135,8 @@ def telecharger_pexels_image(query: str, chemin: str) -> bool:
         return False
     try:
         r = requests.get(
-            f"https://api.pexels.com/v1/search?query={query}&per_page=10&orientation=portrait",
+            "https://api.pexels.com/v1/search",
+            params={"query": query, "per_page": 10, "orientation": "portrait"},
             headers={"Authorization": PEXELS_API_KEY},
             timeout=15,
         ).json()
@@ -142,6 +149,9 @@ def telecharger_pexels_image(query: str, chemin: str) -> bool:
                     for chunk in resp.iter_content(32768):
                         f.write(chunk)
                 if os.path.getsize(chemin) > 5000:
+                    if not verifier_securite_image(chemin):
+                        os.remove(chemin)
+                        return False
                     print(
                         f"      🖼️ [Pexels Image] Téléchargée -> {os.path.basename(chemin)}"
                     )
@@ -156,8 +166,14 @@ def telecharger_pixabay_image(query: str, chemin: str) -> bool:
         return False
     try:
         r = requests.get(
-            f"https://pixabay.com/api/?key={PIXABAY_API_KEY}&q={query}"
-            f"&image_type=photo&orientation=vertical&per_page=10",
+            "https://pixabay.com/api/",
+            params={
+                "key": PIXABAY_API_KEY,
+                "q": query,
+                "image_type": "photo",
+                "orientation": "vertical",
+                "per_page": 10,
+            },
             timeout=15,
         ).json()
         hits = r.get("hits", [])
@@ -169,12 +185,16 @@ def telecharger_pixabay_image(query: str, chemin: str) -> bool:
                     for chunk in resp.iter_content(32768):
                         f.write(chunk)
                 if os.path.getsize(chemin) > 5000:
+                    if not verifier_securite_image(chemin):
+                        os.remove(chemin)
+                        return False
                     print(
                         f"      🖼️ [Pixabay Image] Téléchargée -> {os.path.basename(chemin)}"
                     )
                     return True
     except Exception as e:
-        print(f"      ⚠️ Pixabay Image : {e}")
+        # Le message d'une erreur requests contient l'URL, donc la clé : on ne l'affiche pas.
+        print(f"      ⚠️ Pixabay Image : échec ({type(e).__name__})")
     return False
 
 
@@ -367,12 +387,16 @@ def telecharger_duckduckgo_image(
                 print(f"      📥 [DDG {idx}] {result.get('title', '')[:70]}...")
                 if not telecharger_image_url(img_url, chemin_jpg, "DDG image"):
                     continue
-                if (not STRICT_REAL_VALIDATION) or valider_image_historique(
-                    chemin_jpg,
-                    context_histoire or query,
-                    search_query,
-                    scene_text,
-                    veo_prompt,
+                if (
+                    valider_image_historique(
+                        chemin_jpg,
+                        context_histoire or query,
+                        search_query,
+                        scene_text,
+                        veo_prompt,
+                    )
+                    if STRICT_REAL_VALIDATION
+                    else verifier_securite_image(chemin_jpg)
                 ):
                     print(
                         f"      ✅ [DDG Real Photo] Validée -> {os.path.basename(chemin_jpg)}"

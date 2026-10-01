@@ -20,6 +20,10 @@ if GEMINI_API_KEY:
     except Exception as e:
         print(f"⚠️ Gemini SDK indisponible : {e}")
 
+# Formats acceptés à l'ouverture d'une image venue du web : Pillow devine sinon le
+# format d'après le contenu, ce qui expose ses décodeurs exotiques (PSD, FITS…).
+FORMATS_IMAGE = ("JPEG", "PNG", "WEBP")
+
 # Modèles Imagen 4
 IMAGEN_MODEL_STANDARD = "imagen-4.0-generate-001"
 IMAGEN_MODEL_FAST = "imagen-4.0-fast-generate-001"

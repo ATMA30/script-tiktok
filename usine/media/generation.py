@@ -9,6 +9,7 @@ import urllib.parse
 from usine.media import config as media_config
 from usine.media.config import (
     ALLOW_POLLINATIONS_FALLBACK,
+    FORMATS_IMAGE,
     IMAGEN_MODEL_FAST,
     IMAGEN_MODEL_STANDARD,
     STYLE_SUFFIX_LOW_POLY_3D,
@@ -200,7 +201,7 @@ def generer_image_pollinations(prompt: str, chemin_jpg: str) -> bool:
             return False
         from PIL import Image
 
-        img = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        img = Image.open(io.BytesIO(resp.content), formats=FORMATS_IMAGE).convert("RGB")
         img.save(chemin_jpg, "JPEG", quality=92, optimize=True)
         if os.path.getsize(chemin_jpg) > 5000:
             print(

@@ -2,7 +2,7 @@ edge-tts
 faster-whisper
 google-genai
 numpy
-Pillow
+Pillow>=12.2.0
 pydantic
 python-dotenv
 requests

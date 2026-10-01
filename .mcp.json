@@ -2,23 +2,24 @@
   "//": "Serveurs MCP du projet. RÈGLE D'OR : garde 3 à 6 serveurs ACTIFS max.",
   "//budget": "Au-delà de ~40-50 outils visibles, Claude choisit le mauvais outil. Moins = plus efficace. Active uniquement l'utile, lecture seule quand c'est possible.",
   "//install": "Le plus sûr : passe par /plugin (marketplace officiel claude-plugins-official) qui gère la config. Sinon, vérifie la commande exacte sur le dépôt officiel de chaque serveur.",
-  "//desactiver": "Une clé \"//disabled\" ne désactive rien : pour couper un serveur, retire son entrée. Retirés ici : filesystem (redondant avec les outils natifs), postgres (pas de base de données), playwright (déjà fourni par le plugin).",
+  "//desactiver": "Une clé \"//disabled\" ne désactive rien : pour couper un serveur, retire son entrée. Retirés ici : filesystem (redondant avec les outils natifs), postgres (pas de base de données), playwright et context7 (déjà fournis par les plugins).",
   "mcpServers": {
-    "context7": {
-      "//": "INDISPENSABLE. Doc à jour et fidèle à la version d'une lib -> moins de code faux à corriger. Vérifie la commande sur le dépôt officiel Context7.",
-      "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp"]
-    },
     "sequential-thinking": {
       "//": "Raisonnement structuré pour les tâches complexes (planification, debug profond).",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
     },
     "github": {
-      "//": "Issues, PRs, recherche de code. Token au scope minimal. Lecture seule via X-MCP-Readonly si tu n'ouvres pas de PR.",
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" }
+      "//": "Serveur OFFICIEL GitHub (distant, maintenu), en lecture seule. Remplace @modelcontextprotocol/server-github, archivé depuis mai 2025. Utilise un fine-grained PAT limité au dépôt, en lecture.",
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_TOKEN}",
+        "X-MCP-Readonly": "true"
+      }
     }
   }
 }

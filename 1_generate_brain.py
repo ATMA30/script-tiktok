@@ -495,8 +495,28 @@ class CaseBrief(BaseModel):
     current_status: str = ""
     statut_judiciaire: str = ""
     sources: List[BriefSource] = Field(default_factory=list)
+    # Rempli par le code (métadonnées de la recherche Google), jamais par Gemini
+    sources_recherche: List[str] = Field(default_factory=list)
     uncertainty_flags: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
+
+
+def _sources_de_la_recherche(response) -> List[str]:
+    """Sites réellement consultés par l'outil google_search (grounding metadata).
+
+    Contrairement aux `sources` du JSON, Gemini ne peut pas les inventer.
+    """
+    try:
+        chunks = response.candidates[0].grounding_metadata.grounding_chunks or []
+    except (AttributeError, IndexError, TypeError):
+        return []
+    sites = []
+    for chunk in chunks:
+        web = getattr(chunk, "web", None)
+        titre = (getattr(web, "title", "") or "").strip() if web else ""
+        if titre and titre not in sites:
+            sites.append(titre)
+    return sites
 
 
 def _reparer_json_brief(texte: str) -> Optional[dict]:
@@ -630,7 +650,9 @@ Return ONLY the JSON object. Every field above must be present. Use empty arrays
             data.setdefault("location", location)
             # Validation Pydantic — schéma tout-optionnel, donc ne lève qu'en
             # cas de types incompatibles (jamais juste pour un champ manquant).
+            data.pop("sources_recherche", None)  # jamais pris dans la réponse
             brief = CaseBrief(**data)
+            brief.sources_recherche = _sources_de_la_recherche(response)
             # Un brief non sourcé ou trop maigre n'est jamais utilisé : pas de script
             # sur de vraies personnes sans faits vérifiables.
             ok, raison = brief_suffisant(brief.model_dump())

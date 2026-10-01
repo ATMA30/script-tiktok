@@ -16,11 +16,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-from batch_produce import produire
+from batch_produce import ETAPES, produire
 from usine.projet import (
     REJETE,
     VALIDE,
     marquer,
+    planche_contact,
     resume_dossier,
     retirer_de_la_memoire,
     statut_validation,
@@ -69,10 +70,35 @@ def demander(question, choix):
         )
 
 
+def ouvrir_image(chemin):
+    """Ouvre l'image dans la visionneuse du système (macOS), sans bloquer."""
+    if sys.platform == "darwin":
+        subprocess.run(["open", str(chemin)], check=False)
+
+
 def valider_et_produire(projet):
+    """Valide le dossier, prépare les médias, fait relire les images, puis rend."""
     marquer(projet, VALIDE)
     print(f"\n✅ Dossier validé : {projet}")
-    return produire(projet)
+    if not produire(projet, ETAPES[:-1]):
+        return False
+    # Les images viennent du web APRÈS la validation du texte : elles se relisent aussi.
+    planche = planche_contact(projet)
+    if planche:
+        print(f"\n🖼️  Planche-contact des images : {planche}")
+        ouvrir_image(planche)
+        reponse = demander(
+            "Images OK (aucun visage de suspect ou de mineur, rien de déplacé) ? "
+            "[v]alider / [a]bandonner >",
+            ("valider", "abandonner"),
+        )
+        if reponse != "valider":
+            print(
+                "\n⏸️  Rendu non lancé. Remplace ou supprime les images concernées dans "
+                f"{projet}/real_media/, puis : python 3_render_hyperframes.py --projet {projet}"
+            )
+            return False
+    return produire(projet, ETAPES[-1:])
 
 
 def traiter_un_dossier(sujet=None):

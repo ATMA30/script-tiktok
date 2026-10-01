@@ -76,14 +76,15 @@ def detecter_projets_a_traiter():
     return a_traiter
 
 
-def produire(projet):
-    """Étapes 1 à 5 sur un projet validé. Renvoie True si final.mp4 est produit."""
+def produire(projet, etapes=ETAPES):
+    """Enchaîne `etapes` (par défaut 1 à 5) sur un projet validé. True si tout réussit."""
     vs = lire_visual_style(projet)
-    for step in ETAPES:
+    for step in etapes:
         if not run_step(step, projet, visual_style=vs):
             print(f"⛔ Pipeline arrêté pour {os.path.basename(projet)}")
             return False
-    print(f"\n✅ VIDÉO TERMINÉE : {projet}/{FINAL_VIDEO}")
+    if etapes[-1] == ETAPES[-1]:
+        print(f"\n✅ VIDÉO TERMINÉE : {projet}/{FINAL_VIDEO}")
     return True
 
 

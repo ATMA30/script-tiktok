@@ -185,3 +185,80 @@ def test_serveur_goutte_a_goutte_coupe_a_l_echeance(dns, http, tmp_path):
     )
     assert not ok and time.monotonic() - debut < 3
     assert not (tmp_path / "x.part").exists()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://127.0.0.1\\@exemple.com/x.jpg",  # urlparse lit exemple.com, requests 127.0.0.1
+        "https://10.0.0.1:443\\@exemple.com/x.jpg",
+        "https://faß.de/x.jpg",  # IDNA 2003 ≠ 2008
+        "https://exemple.com:8443/x.jpg",
+    ],
+)
+def test_contournements_du_filtre_refuses(dns, http, tmp_path, url):
+    assert not reseau.telecharger_vers_fichier(url, str(tmp_path / "x"))
+    assert http[1] == []  # aucune requête partie
+
+
+def test_url_envoyee_est_celle_verifiee(dns, http, tmp_path):
+    reponses, appels = http
+    url = "https://exemple.com/a b.jpg"
+    preparee = reseau.verifier_url(url)
+    reponses[preparee] = _Reponse()
+    assert reseau.telecharger_vers_fichier(url, str(tmp_path / "x"))
+    assert appels == [preparee]
+
+
+def test_en_tetes_au_goutte_a_goutte_coupes_a_l_echeance(dns, monkeypatch, tmp_path):
+    import time
+
+    def get_lent(url, **kwargs):
+        time.sleep(5)  # serveur qui égrène ses en-têtes
+        return _Reponse()
+
+    monkeypatch.setattr(reseau.requests, "get", get_lent)
+    debut = time.monotonic()
+    assert not reseau.telecharger_vers_fichier(
+        "https://exemple.com/a.jpg", str(tmp_path / "x"), duree_max=0.3
+    )
+    assert time.monotonic() - debut < 3
+
+
+@pytest.mark.parametrize("phase", ["en-tetes", "corps"])
+def test_echeance_sur_un_vrai_socket(monkeypatch, tmp_path, phase):
+    # Vrai serveur local qui envoie 1 octet par seconde : l'ancienne échéance
+    # (minuteur + resp.close) restait bloquée ~20 s sur une vraie socket.
+    import socketserver
+    import time
+
+    class Goutte(socketserver.BaseRequestHandler):
+        def handle(self):
+            entetes = b"HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n\r\n"
+            try:
+                if phase == "corps":
+                    self.request.sendall(entetes)
+                    morceaux = [b"x"] * 30
+                else:
+                    morceaux = [bytes([o]) for o in entetes]
+                for octet in morceaux:
+                    self.request.sendall(octet)
+                    time.sleep(1)
+            except OSError:
+                pass
+
+    serveur = socketserver.ThreadingTCPServer(("127.0.0.1", 0), Goutte)
+    serveur.daemon_threads = True
+    threading = __import__("threading")
+    threading.Thread(target=serveur.serve_forever, daemon=True).start()
+    try:
+        url = f"http://127.0.0.1:{serveur.server_address[1]}/a.jpg"
+        monkeypatch.setattr(reseau, "verifier_url", lambda u: u)  # autorise le local
+        debut = time.monotonic()
+        ok = reseau.telecharger_vers_fichier(url, str(tmp_path / "x"), duree_max=2)
+        assert not ok
+        assert time.monotonic() - debut < 6
+        assert not (tmp_path / "x").exists()
+    finally:
+        serveur.shutdown()
+        serveur.server_close()

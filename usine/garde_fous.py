@@ -182,3 +182,32 @@ def brief_suffisant(brief):
     if len(resume) < MIN_RESUME:
         return False, f"résumé trop court ({len(resume)} caractères)"
     return True, ""
+
+
+_MOT_CAPITALISE = re.compile(r"(?<![\w'’\-])([A-ZÀ-ÖØ-Þ][\w'’\-]+)")
+
+
+def noms_propres_hors_brief(script, brief):
+    """Mots en majuscule de la narration (hors début de phrase) absents du brief.
+
+    Signale à la relecture humaine les personnes ou lieux que le brief ne classe
+    pas : la liste d'autorisation ne protège que les personnes listées.
+    """
+    connus = plier(
+        " ".join(
+            [p.get("name", "") for p in brief.get("people") or []]
+            + [brief.get("location", ""), brief.get("title", "")]
+        )
+    )
+    mots_connus = set(re.split(r"[\s\-'’,()]+", connus))
+    trouves = []
+    for scene in script.get("scenes", []):
+        texte = scene.get("audio_tts", "")
+        for m in _MOT_CAPITALISE.finditer(texte):
+            avant = texte[: m.start()].rstrip()
+            if not avant or avant[-1] in '.!?…:«"':
+                continue  # début de phrase ou de citation
+            mot = m.group(1).strip("'’-")
+            if plier(mot) not in mots_connus and mot not in trouves:
+                trouves.append(mot)
+    return trouves

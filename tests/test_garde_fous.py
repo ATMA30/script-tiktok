@@ -4,6 +4,7 @@ import pytest
 
 from usine.garde_fous import (
     brief_suffisant,
+    noms_propres_hors_brief,
     nettoyer_requetes,
     personnes_a_taire,
     verifier_script,
@@ -179,3 +180,15 @@ def test_brief_suffisant():
     assert (
         brief_suffisant({"summary": "HOAX_OR_FICTION", "sources": sources})[0] is False
     )
+
+
+def test_noms_propres_hors_brief():
+    script = _script(
+        "Landru nie tout. Puis Jean Dupont témoigne à Gambais, près de Versailles."
+    )
+    brief = {
+        "people": [{"name": "Henri Désiré Landru"}],
+        "location": "Gambais (Yvelines)",
+    }
+    # « Landru » ouvre une phrase et figure au brief ; Gambais est le lieu du brief.
+    assert noms_propres_hors_brief(script, brief) == ["Jean", "Dupont", "Versailles"]

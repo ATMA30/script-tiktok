@@ -25,6 +25,10 @@ Avant validation, tu relis :
 
 Ensuite, tu choisis : **[v]alider**, **[r]égénérer** ou **[a]bandonner**.
 
+Après la préparation des médias, une **planche-contact** des images trouvées sur le web s'ouvre. Le rendu final n'est lancé qu'une fois les images validées (aucun visage de suspect ni de mineur).
+
+La validation est liée au contenu : modifier `script.json` après coup l'annule, et il faut revalider.
+
 Pour rendre en lot les dossiers déjà validés :
 
 ```bash

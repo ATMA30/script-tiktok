@@ -7,3 +7,4 @@ pydantic
 python-dotenv
 requests
 soundfile
+urllib3>=2.6.0

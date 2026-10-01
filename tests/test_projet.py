@@ -66,6 +66,10 @@ def _projet_minimal(racine, nom, statut=None, final=False):
     if statut:
         script["validation"] = {"statut": statut}
     (dossier / "script.json").write_text(json.dumps(script), encoding="utf-8")
+    if statut == "valide":
+        from usine.projet import marquer
+
+        marquer(dossier, "valide")  # pose aussi l'empreinte du contenu
     if final:
         (dossier / "final.mp4").write_bytes(b"x")
     return dossier
@@ -141,7 +145,9 @@ def _usine(monkeypatch, reponses, produits):
     usine = _charger_script("0_usine.py")
     entrees = iter(reponses)
     monkeypatch.setattr("builtins.input", lambda _q: next(entrees))
-    monkeypatch.setattr(usine, "produire", lambda p: produits.append(p) or True)
+    monkeypatch.setattr(
+        usine, "produire", lambda p, etapes=None: produits.append(p) or True
+    )
     return usine
 
 
@@ -152,7 +158,7 @@ def test_usine_valider_un_dossier_existant(tmp_path, monkeypatch):
     produits = []
     usine = _usine(monkeypatch, ["o"], produits)
     assert usine.main(["--valider", str(projet)]) == 0
-    assert statut_validation(projet) == "valide" and produits == [str(projet)]
+    assert statut_validation(projet) == "valide" and produits == [str(projet)] * 2
 
 
 def test_usine_regenerer_puis_valider(tmp_path, monkeypatch):
@@ -166,7 +172,7 @@ def test_usine_regenerer_puis_valider(tmp_path, monkeypatch):
     monkeypatch.setattr(usine, "generer_dossier", lambda sujet=None: next(dossiers))
     assert usine.traiter_un_dossier() is True
     assert statut_validation(premier) == "rejete"
-    assert statut_validation(second) == "valide" and produits == [str(second)]
+    assert statut_validation(second) == "valide" and produits == [str(second)] * 2
 
 
 def test_usine_abandon_ne_produit_rien(tmp_path, monkeypatch):
@@ -212,7 +218,7 @@ def test_entree_fermee_laisse_le_dossier_a_valider(tmp_path, monkeypatch):
     monkeypatch.setattr("builtins.input", _eof)
     monkeypatch.setattr(usine, "generer_dossier", lambda sujet=None: str(projet))
     monkeypatch.setattr(
-        usine, "produire", lambda p: pytest.fail("ne doit pas produire")
+        usine, "produire", lambda p, etapes=None: pytest.fail("ne doit pas produire")
     )
     assert usine.traiter_un_dossier() is False
     assert statut_validation(projet) == "a_valider"
@@ -257,3 +263,94 @@ def test_rendu_refuse_un_projet_non_valide(tmp_path, monkeypatch):
     )
     pipeline.main()
     assert rendus == [{"do_check": False, "prepare_only": True}]
+
+
+def test_modifier_le_script_apres_validation_l_invalide(tmp_path):
+    import json
+
+    from usine.projet import est_valide
+
+    projet = _projet_minimal(tmp_path, "p", statut="valide")
+    assert est_valide(projet)
+    script = json.loads((projet / "script.json").read_text())
+    script["scenes"][0]["audio_tts"] = "Jean Dufour est coupable."
+    (projet / "script.json").write_text(json.dumps(script))
+    assert not est_valide(projet)
+
+
+def test_statut_valide_pose_a_la_main_ne_suffit_pas(tmp_path):
+    import json
+
+    from usine.projet import est_valide
+
+    projet = _projet_minimal(tmp_path, "p")
+    script = json.loads((projet / "script.json").read_text())
+    script["validation"] = {"statut": "valide"}  # ex. poussé tel quel en CI
+    (projet / "script.json").write_text(json.dumps(script))
+    assert not est_valide(projet)
+
+
+def _projet_avec_images(tmp_path, n=3):
+    from PIL import Image
+
+    projet = _projet_minimal(tmp_path, "p", statut="a_valider")
+    for i in range(1, n + 1):
+        d = projet / "real_media" / f"scene_{i}"
+        d.mkdir(parents=True)
+        Image.new("RGB", (90, 160), (40 * i, 20, 20)).save(d / "plan_1.jpg")
+    return projet
+
+
+def test_planche_contact(tmp_path):
+    from PIL import Image
+
+    from usine.projet import planche_contact
+
+    assert planche_contact(_projet_minimal(tmp_path, "vide")) is None
+    planche = planche_contact(_projet_avec_images(tmp_path))
+    assert planche.exists() and Image.open(planche).size[0] > 0
+
+
+def test_images_refusees_rendu_non_lance(tmp_path, monkeypatch):
+    projet = _projet_avec_images(tmp_path)
+    etapes_lancees = []
+    usine = _usine(monkeypatch, ["a"], [])
+    monkeypatch.setattr(
+        usine, "produire", lambda p, etapes=None: etapes_lancees.append(etapes) or True
+    )
+    monkeypatch.setattr(usine, "ouvrir_image", lambda chemin: None)
+    assert usine.valider_et_produire(str(projet)) is False
+    assert etapes_lancees == [usine.ETAPES[:-1]]  # préparation seule, pas de rendu
+
+
+def test_images_validees_rendu_lance(tmp_path, monkeypatch):
+    projet = _projet_avec_images(tmp_path)
+    etapes_lancees = []
+    usine = _usine(monkeypatch, ["v"], [])
+    monkeypatch.setattr(
+        usine, "produire", lambda p, etapes=None: etapes_lancees.append(etapes) or True
+    )
+    monkeypatch.setattr(usine, "ouvrir_image", lambda chemin: None)
+    assert usine.valider_et_produire(str(projet)) is True
+    assert etapes_lancees == [usine.ETAPES[:-1], usine.ETAPES[-1:]]
+
+
+def test_resume_montre_nommables_inconnus_et_sources_consultees(tmp_path):
+    import json
+
+    from usine.projet import resume_dossier
+
+    projet = _projet_minimal(tmp_path, "p")
+    script = json.loads((projet / "script.json").read_text())
+    script["scenes"][0]["audio_tts"] = "Le juge entend alors Jean Dufour.\x1b[2K"
+    (projet / "script.json").write_text(json.dumps(script))
+    brief = {
+        "people": [{"name": "Paul Martin", "role": "victime"}],
+        "sources_recherche": ["lemonde.fr"],
+    }
+    (projet / "brief.json").write_text(json.dumps(brief))
+    texte = resume_dossier(projet)
+    assert "Paul Martin — victime" in texte  # nommable affiché avec son rôle
+    assert "Jean, Dufour" in texte  # nom propre absent du brief signalé
+    assert "lemonde.fr" in texte
+    assert "\x1b" not in texte  # séquences de contrôle retirées

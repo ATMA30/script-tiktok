@@ -1,24 +1,31 @@
+# Secrets
 .env
+
+# OS / éditeur
 .DS_Store
+.vscode/
+
+# Python
 __pycache__/
 *.py[cod]
-
-# Generated media and render artifacts
-projets/
-hyperframes_render/
-hyperframes_poc/renders/
-musiques/*.mp3
-musiques/*.wav
-voice_samples/
-frame_*.jpg
-test_voice_*.wav
-stress.mp3
-
-# Local package/cache artifacts
-node_modules/
 .pytest_cache/
 .ruff_cache/
-# --- Claude stack ---
+
+# Node
+node_modules/
+
+# Médias et artefacts générés par le pipeline
+projets/
+hyperframes_render/
+musiques/*.mp3
+musiques/*.wav
+*.mp4
+frame_*.jpg
+
+# Fichiers retirés du projet, gardés en local (à supprimer quand tu veux)
+_archive/
+
+# Claude Code
 .claude/journal/audit.log
-CLAUDE.local.md
 .claude/settings.local.json
+CLAUDE.local.md

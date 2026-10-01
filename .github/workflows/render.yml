@@ -54,7 +54,7 @@ jobs:
           path: |
             ~/.npm
             ~/.cache/puppeteer
-          key: hf-${{ runner.os }}-${{ hashFiles('3_render_hyperframes.py') }}
+          key: hf-${{ runner.os }}-${{ hashFiles('usine/render/**') }}
 
       - name: Prefetch HyperFrames CLI (warm npx cache)
         run: npx --yes hyperframes@0.5.7 --help || true

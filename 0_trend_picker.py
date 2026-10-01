@@ -15,6 +15,8 @@ Usage standalone :
 import os
 import json
 import argparse
+from typing import Optional
+
 import requests
 from dotenv import load_dotenv
 from google import genai
@@ -265,10 +267,6 @@ def afficher_suggestions(suggestions: list[dict]) -> Optional[int]:
     except (ValueError, KeyboardInterrupt):
         pass
     return None
-
-
-# Import optionnel pour le type hint (évite la dépendance circulaire)
-from typing import Optional
 
 
 if __name__ == "__main__":

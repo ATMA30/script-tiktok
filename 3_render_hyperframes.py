@@ -15,7 +15,7 @@ Headless (Puppeteer + Chromium) — CI-friendly. No browser GUI opens.
 import os
 import re
 import json
-import base64
+import hashlib
 import shutil
 import subprocess
 import argparse
@@ -154,7 +154,9 @@ USE_HOOK_INTRO = os.getenv("USE_HOOK_INTRO", "0") == "1"
 # Outro / CTA "Part 2 ?" sur dernière scène
 USE_OUTRO_CTA = os.getenv("USE_OUTRO_CTA", "0") == "1"
 USE_BRAND_LOGO = os.getenv("USE_BRAND_LOGO", "0") == "1"
-BRAND_LOGO_PATH = os.getenv("BRAND_LOGO_PATH", "")
+BRAND_LOGO_PATH = os.getenv(
+    "BRAND_LOGO_PATH", str(ROOT / "assets" / "brand" / "logo_yurei.png")
+)
 USE_SCROLL_HOOK = os.getenv("USE_SCROLL_HOOK", "0") == "1"
 SCROLL_HOOK_TEXT = os.getenv(
     "SCROLL_HOOK_TEXT",
@@ -5200,8 +5202,8 @@ def _persistent_case_tag_html(projet_name):
     """Tag CASE permanent en coin haut-droite, identifiant unique du projet."""
     if not USE_PERSISTENT_CASE_TAG:
         return ""
-    # Identifiant déterministe stable basé sur le projet
-    h = abs(hash(projet_name)) & 0xFFFFFF
+    # Identifiant stable basé sur le projet (hash() est randomisé par processus)
+    h = int(hashlib.md5(projet_name.encode("utf-8")).hexdigest(), 16) & 0xFFFFFF
     case_id = f"{h >> 12:03X}-{h & 0xFFF:03X}"
     year = "26"  # année stylisée
     return (

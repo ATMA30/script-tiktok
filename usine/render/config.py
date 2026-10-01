@@ -25,16 +25,14 @@ HF_VERSION = "0.5.7"
 USE_IMAGES = os.getenv("USE_IMAGES", "1") == "1"
 MOTION_STRENGTH = float(os.getenv("MOTION_STRENGTH", "2.0"))
 
-# Agents IA de composition: puissants mais non déterministes.
-# Les overlays sémantiques sont déterministes et activés par défaut.
-# Les agents IA restent désactivés sauf demande explicite:
+# Overlays documentaires (carte, année, dossier, compteur…) : déterministes,
+# activés par défaut. Le Director Agent (Gemini) reste opt-in car non déterministe :
 #   USE_SEMANTIC_OVERLAYS=0 python 3_render_hyperframes.py
 #   USE_DIRECTOR_AGENT=1 python 3_render_hyperframes.py
-USE_SEMANTIC_OVERLAYS = os.getenv("USE_SEMANTIC_OVERLAYS", "0") == "1"
+USE_SEMANTIC_OVERLAYS = os.getenv("USE_SEMANTIC_OVERLAYS", "1") == "1"
 USE_DIRECTOR_AGENT = os.getenv("USE_DIRECTOR_AGENT", "0") == "1"
-# Lottie motion-graphic overlays. When the Director Agent is disabled, a
-# deterministic paranormal preset chooses a few scene-relevant accents.
-# Keep this opt-in so existing drama renders remain unchanged:
+# Accents Lottie (bibliothèque assets/lottie). Opt-in : sans Director Agent,
+# un preset déterministe choisit quelques accents par scène.
 #   USE_LOTTIE_OVERLAYS=1 python 3_render_hyperframes.py
 USE_LOTTIE_OVERLAYS = os.getenv("USE_LOTTIE_OVERLAYS", "0") == "1"
 # Whoosh SFX on every dramatic red word — disabled by default because it ends
@@ -42,24 +40,21 @@ USE_LOTTIE_OVERLAYS = os.getenv("USE_LOTTIE_OVERLAYS", "0") == "1"
 # becomes irritating. Re-enable per-render with USE_WHOOSH_SFX=1.
 USE_WHOOSH_SFX = os.getenv("USE_WHOOSH_SFX", "0") == "1"
 
-# Pause lisible juste après le hook. Elle décale la scène 2, donc la voix ne
-# démarre qu'après la carte noire.
-# 2026-05 : raccourcie à 0.8s pour conserver l'élan TikTok (était 2.20s).
-# SKIP_TRUTH_CARD=1 supprime totalement la carte (rendu plus punchy).
-TRUTH_PREROLL_SECONDS = float(os.getenv("TRUTH_PREROLL_SECONDS", "3.00"))
-SKIP_TRUTH_CARD = (
-    os.getenv("SKIP_TRUTH_CARD", "1") == "1"
-)  # drama : pas de carte VÉRITÉ
+# Carte « HISTOIRE VRAIE » juste après le hook. Elle décale la scène 2 : la voix
+# ne reprend qu'après la carte. 0.8 s pour garder l'élan TikTok (était 2.20 s).
+# SKIP_TRUTH_CARD=1 supprime totalement la carte.
+TRUTH_PREROLL_SECONDS = float(os.getenv("TRUTH_PREROLL_SECONDS", "0.8"))
+SKIP_TRUTH_CARD = os.getenv("SKIP_TRUTH_CARD", "0") == "1"
 
-# Hook visuel sobre sur scène 1 (numéro épisode + fade doux, sans flash ni tag CASE)
-USE_HOOK_INTRO = os.getenv("USE_HOOK_INTRO", "0") == "1"
+# Hook visuel sobre sur la scène 1 (titre en fondu, sans flash)
+USE_HOOK_INTRO = os.getenv("USE_HOOK_INTRO", "1") == "1"
 
-# Outro / CTA "Part 2 ?" sur dernière scène
-USE_OUTRO_CTA = os.getenv("USE_OUTRO_CTA", "0") == "1"
-USE_BRAND_LOGO = os.getenv("USE_BRAND_LOGO", "0") == "1"
-BRAND_LOGO_PATH = os.getenv(
-    "BRAND_LOGO_PATH", str(ROOT / "assets" / "brand" / "logo_yurei.png")
-)
+# CTA d'abonnement sur la dernière scène (DESIGN.md : 1,5 à 1,8 s en fin de vidéo)
+USE_OUTRO_CTA = os.getenv("USE_OUTRO_CTA", "1") == "1"
+# Logo Yūrei en haut à droite, faible opacité (DESIGN.md)
+USE_BRAND_LOGO = os.getenv("USE_BRAND_LOGO", "1") == "1"
+BRAND_LOGO_DEFAUT = ROOT / "assets" / "brand" / "logo_yurei.png"
+BRAND_LOGO_PATH = os.getenv("BRAND_LOGO_PATH", str(BRAND_LOGO_DEFAUT))
 USE_SCROLL_HOOK = os.getenv("USE_SCROLL_HOOK", "0") == "1"
 SCROLL_HOOK_TEXT = os.getenv(
     "SCROLL_HOOK_TEXT",
@@ -96,7 +91,8 @@ DISABLE_SCENE_TRANSITIONS = os.getenv("DISABLE_SCENE_TRANSITIONS", "1") == "1"
 # Film grain animé (look 35mm documentaire)
 USE_FILM_GRAIN = os.getenv("USE_FILM_GRAIN", "1") == "1"
 
-# Tag CASE discret en coin permanent — désactivé pour le drama intime
+# Tag « DOSSIER · ID » en coin + couches de réalisation « enquête » (scan, cadre).
+# Désactivé par défaut : DESIGN.md proscrit les HUD d'investigation décoratifs.
 USE_PERSISTENT_CASE_TAG = os.getenv("USE_PERSISTENT_CASE_TAG", "0") == "1"
 
 # Letterbox cinéma (barres noires haut/bas légères)

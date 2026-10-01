@@ -60,3 +60,16 @@ def test_projet_hyperframes_complet(projet_factice, tmp_path, monkeypatch):
     assert (render_dir / "package.json").exists()
     voix = sorted(p.name for p in (render_dir / "assets").glob("s*_vo.wav"))
     assert voix == [f"s{i}_vo.wav" for i in range(1, 6)]
+
+
+def test_logo_introuvable_repli_sur_le_logo_par_defaut(
+    projet_factice, tmp_path, monkeypatch
+):
+    # Ex. un ancien BRAND_LOGO_PATH dans le .env, d'avant le rangement d'assets/brand/.
+    from usine.render import pipeline
+
+    monkeypatch.setattr(pipeline, "RENDER_ROOT", tmp_path / "render")
+    monkeypatch.setattr(pipeline, "BRAND_LOGO_PATH", str(tmp_path / "absent.png"))
+    render_dir = pipeline.render_projet(projet_factice, prepare_only=True)
+    copie = render_dir / "assets" / "yurei_logo.png"
+    assert copie.read_bytes() == pipeline.BRAND_LOGO_DEFAUT.read_bytes()

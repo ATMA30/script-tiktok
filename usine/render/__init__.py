@@ -1,13 +1,12 @@
 """
 Render final TikTok video from script.json + audios + images using HyperFrames.
 
-Visual style : drama intime / confession 1ʳᵉ personne
-- 3D Ken Burns (perspective + dolly/orbit/tilt par scène)
-- Transitions whip-blur douces entre scènes
-- Intro épisode sobre (numéro + titre, fade doux)
-- Sous-titres avec mots émotionnels clés en blanc chaud
-- Film grain + vignette cinématique
-- Pas de glitch, pas de HUD, pas de tag CLASSIFIED
+Style : documentaire true crime / faits divers (DESIGN.md)
+- Ken Burns 3D (perspective + dolly/orbit/tilt par scène)
+- Overlays documentaires déterministes : carte, année, dossier, compteur
+- Hook en fondu, carte « HISTOIRE VRAIE », CTA d'abonnement final
+- Sous-titres avec mots clés en rouge, logo Yūrei discret
+- Film grain + vignette cinématique, pas de HUD caméscope
 
 Headless (Puppeteer + Chromium) — CI-friendly. No browser GUI opens.
 """

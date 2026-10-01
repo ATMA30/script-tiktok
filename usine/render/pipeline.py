@@ -16,6 +16,7 @@ from usine.render.cards import build_hook_intro, build_outro_cta, build_true_sto
 from usine.render.config import (
     AMBIENT_MUSIC_VOLUME,
     BG_VARIANTS,
+    BRAND_LOGO_DEFAUT,
     BRAND_LOGO_PATH,
     HF_VERSION,
     OUTRO_TAIL_SECONDS,
@@ -102,13 +103,17 @@ def render_projet(projet_dir, do_check=False, prepare_only=False):
     assets_dir = render_dir / "assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
     write_hyperframes_project(render_dir)
-    if USE_BRAND_LOGO and BRAND_LOGO_PATH:
+    if USE_BRAND_LOGO:
         logo_src = Path(BRAND_LOGO_PATH).expanduser().resolve()
+        if not logo_src.exists():
+            # Ex. ancien BRAND_LOGO_PATH dans le .env, d'avant le rangement d'assets/brand/.
+            print(f"   ⚠️ Logo introuvable : {logo_src} → logo par défaut")
+            logo_src = BRAND_LOGO_DEFAUT
         if logo_src.exists():
             shutil.copy(logo_src, assets_dir / "yurei_logo.png")
             print(f"   ◉ Logo Yūrei intégré : {logo_src.name}")
         else:
-            print(f"   ⚠️ Logo introuvable : {logo_src}")
+            print(f"   ⚠️ Logo par défaut introuvable : {logo_src}")
 
     # Copy the curated Lottie library into the render assets. Animation JSON
     # is embedded in the page so frame capture stays deterministic.

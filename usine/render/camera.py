@@ -487,8 +487,8 @@ def build_image_block(
 def build_scene_director_fx(
     s_id, scene_idx, scene_start, audio_duration, subtitle_src, hud_effect="scanner"
 ):
-    """Couches de réalisation déterministes: scan, cadre, lumière et dossier.
-    Désactivé en mode drama (USE_PERSISTENT_CASE_TAG=0) — pas de CASE/EVIDENCE/scanner."""
+    """Couches de réalisation déterministes : scan, cadre, lumière et dossier.
+    Opt-in (USE_PERSISTENT_CASE_TAG=1) : DESIGN.md proscrit les HUD décoratifs."""
     if not USE_PERSISTENT_CASE_TAG:
         return [], []
     hud_effect = (hud_effect or "scanner").lower()

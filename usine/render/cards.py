@@ -47,7 +47,7 @@ def build_true_story_card(s_id, scene_idx, card_start, hold_duration, subtitle_s
 
 
 def build_hook_intro(s_id, scene_idx, scene_start, audio_duration, subtitle_src=""):
-    """Intro sobre pour scène 1 drama intime : fade noir → titre épisode.
+    """Intro sobre pour la scène 1 : fondu au noir → titre (début du hook).
 
     Pas de flash rouge, pas de tag CASE/DOSSIER. Juste un fade élégant.
     """
@@ -116,7 +116,7 @@ def build_outro_cta(
             f'data-track-index="{scene_idx * 20 + 19}">'
             f'<div class="outro-cta-kicker">YŪREI</div>'
             f'<div class="outro-cta-title">ABONNE-TOI</div>'
-            f'<div class="outro-cta-sub">POUR LA <span class="accent">SUITE</span></div>'
+            f'<div class="outro-cta-sub">POUR LE PROCHAIN <span class="accent">DOSSIER</span></div>'
             f"</div>"
         )
     ]

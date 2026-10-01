@@ -3,7 +3,9 @@
 ## Identity
 
 - Format: vertical 1080x1920, 30 fps.
-- Mood: paranormal documentary, restrained dread, credible testimony.
+- Mood: true crime / faits divers documentary, restrained dread, credible facts.
+- Real people: no recognizable face of a real person; show places, objects,
+  silhouettes, hands, empty courtrooms (see the legal rules in `usine/garde_fous.py`).
 - Visual language: cinematic low-poly 3D, wet roads, fog, deep shadows.
 - Avoid: VHS, camcorder HUD, decorative glitch spam, bright fantasy colors.
 
@@ -33,19 +35,22 @@
 
 ## Lottie
 
-- Paranormal episodes use the custom `yurei_mirror_manifestation` signature:
+- Off by default (`USE_LOTTIE_OVERLAYS=0`); true crime relies on documentary
+  overlays (map, year, file, counter) instead.
+- If a story ever needs it, the custom `yurei_mirror_manifestation` signature:
   a faceless white figure, a brief red fracture, then spectral evaporation.
 - Place it only when an apparition or disappearance is explicitly narrated.
 - Keep it inside the physical surface where the event occurs: mirror, window,
   doorway, or dark background plane.
 - Lottie layers remain below captions and are scrubbed deterministically.
 - Do not use generic loaders, radar, magnifiers, investigation HUDs, or
-  decorative Lotties in paranormal stories.
+  decorative Lotties (this is why `USE_PERSISTENT_CASE_TAG` stays off).
 
 ## Brand
 
 - Keep the Yurei logo in the upper-right safe area at low opacity.
 - First-frame hook occupies the upper-left safe area.
+- A short « HISTOIRE VRAIE » card follows the hook (0.8 s).
 - End every social version with a 1.5 to 1.8 second subscription CTA.
 
 ## Audio

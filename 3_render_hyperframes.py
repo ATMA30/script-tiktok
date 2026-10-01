@@ -103,14 +103,6 @@ WIDTH, HEIGHT = 1080, 1920
 FPS = 30
 HF_VERSION = "0.5.7"
 
-# Les images doivent être présentes/décodées avant leur timecode réel. Sinon
-# Chromium peut rendre 1-2 frames noires au moment où HyperFrames rend le clip
-# visible pour la première fois.
-# 0.0 = pas de preload, opacity:1 inline immédiat (v22, comportement validé).
-# Tester >0 si Chromium décode trop lentement, mais cela peut réintroduire un
-# bref noir au moment du scene_start si le tl.set GSAP est retardé.
-IMAGE_PRELOAD_LEAD_SECONDS = float(os.getenv("IMAGE_PRELOAD_LEAD_SECONDS", "0.6"))
-
 # USE_IMAGES = True → utilise les images du projet (real_media/scene_N/*.jpg)
 #                    avec les overlays éditoriaux par-dessus (hybride)
 # USE_IMAGES = False → 100% procédural (HTML/CSS/SVG/GSAP, pas d'images)
@@ -123,8 +115,6 @@ MOTION_STRENGTH = float(os.getenv("MOTION_STRENGTH", "2.0"))
 # Les agents IA restent désactivés sauf demande explicite:
 #   USE_SEMANTIC_OVERLAYS=0 python 3_render_hyperframes.py
 #   USE_DIRECTOR_AGENT=1 python 3_render_hyperframes.py
-#   USE_GENERATIVE_OVERLAYS=1 python 3_render_hyperframes.py
-#   USE_AI_OVERLAY_DETECTION=1 python 3_render_hyperframes.py
 USE_SEMANTIC_OVERLAYS = os.getenv("USE_SEMANTIC_OVERLAYS", "0") == "1"
 USE_DIRECTOR_AGENT = os.getenv("USE_DIRECTOR_AGENT", "0") == "1"
 # Lottie motion-graphic overlays. When the Director Agent is disabled, a
@@ -136,8 +126,6 @@ USE_LOTTIE_OVERLAYS = os.getenv("USE_LOTTIE_OVERLAYS", "0") == "1"
 # up triggering on every scene (each scene has at least one dramatic word) and
 # becomes irritating. Re-enable per-render with USE_WHOOSH_SFX=1.
 USE_WHOOSH_SFX = os.getenv("USE_WHOOSH_SFX", "0") == "1"
-USE_GENERATIVE_OVERLAYS = os.getenv("USE_GENERATIVE_OVERLAYS", "0") == "1"
-USE_AI_OVERLAY_DETECTION = os.getenv("USE_AI_OVERLAY_DETECTION", "0") == "1"
 
 # Pause lisible juste après le hook. Elle décale la scène 2, donc la voix ne
 # démarre qu'après la carte noire.
@@ -170,13 +158,7 @@ DRAMATIC_EVENT_SCENES = os.getenv(
 )
 
 # Secondes de queue après la voix sur la dernière scène (CTA + musique seuls)
-# Note : on ajoute 0.6s de marge interne pour éviter le clip-out HyperFrames
-# à la frontière exacte du root duration.
 OUTRO_TAIL_SECONDS = float(os.getenv("OUTRO_TAIL_SECONDS", "3.5"))
-OUTRO_TAIL_SAFETY_MARGIN = 0.6  # s avant la fin du root, le CTA fade out doux
-
-# Subtitle "punch" mode : scale boost, glow rouge, stroke plus épais sur .emph
-USE_PUNCH_SUBTITLES = os.getenv("USE_PUNCH_SUBTITLES", "1") == "1"
 
 # SFX synthétiques générés à la volée si assets/sfx/ vide (whoosh, sub-drop, riser)
 USE_SYNTH_SFX = os.getenv("USE_SYNTH_SFX", "1") == "1"
@@ -189,9 +171,6 @@ POST_MIX_MUSIC_VOLUME = float(os.getenv("POST_MIX_MUSIC_VOLUME", "0.28"))
 
 # Color grading par acte : froid (intro) → cyan tendu (corps) → rouge (climax)
 USE_ACT_GRADING = os.getenv("USE_ACT_GRADING", "1") == "1"
-
-# Transitions variées entre scènes (flash, rgb-glitch, zoom-blur, hard-cut, fade-rouge)
-USE_VARIED_TRANSITIONS = os.getenv("USE_VARIED_TRANSITIONS", "1") == "1"
 
 # Désactive COMPLÈTEMENT toutes transitions inter-scènes : aucun flash, aucun
 # voile noir/rouge au moment du cut. Hard cut pur pour que l'image suivante soit
@@ -3381,312 +3360,6 @@ def _ov_sem_blackout(s_id, scene_idx, scene_start, audio_duration, spec):
     return [html], js
 
 
-def _ov_year(s_id, scene_idx, scene_start, audio_duration, spec):
-    oid = f"{s_id}_ov_year"
-    start = scene_start + 0.8
-    dur = min(4.5, audio_duration - 1.5)
-    value = html_escape(spec["value"])
-    html = (
-        f'<div id="{oid}" class="ov-year clip" '
-        f'data-start="{start:.3f}" data-duration="{dur:.3f}" '
-        f'data-track-index="{scene_idx * 20 + 15 + spec.get("idx", 0)}">'
-        f'<span class="ov-year-label">YEAR · CASE OPENED</span>{value}</div>'
-    )
-    js = [
-        f'gsap.set("#{oid}", {{opacity: 0, y: -30}});',
-        f'tl.to("#{oid}", {{opacity: 1, y: 0, duration: 0.7, ease: "expo.out"}}, {start:.3f});',
-        f'tl.to("#{oid}", {{opacity: 0, y: -20, duration: 0.5, ease: "expo.in"}}, '
-        f"{(start + dur - 0.5):.3f});",
-        f'tl.set("#{oid}", {{opacity: 0}}, {(start + dur):.3f});',
-    ]
-    return [html], js
-
-
-def _ov_location(s_id, scene_idx, scene_start, audio_duration, spec):
-    oid = f"{s_id}_ov_loc"
-    start = scene_start + 1.2
-    dur = min(5.0, audio_duration - 1.8)
-    label = html_escape(spec["value"])
-    coords = html_escape(spec.get("coords", "COORDONNÉES INCONNUES"))
-    map_id = f"{oid}_map"
-    has_map = spec.get("lnglat") is not None
-    iso = spec.get("iso") or ""
-    lnglat = spec.get("lnglat") or [0, 0]
-
-    map_block = ""
-    if has_map:
-        map_block = f'<div class="ov-loc-map"><svg id="{map_id}" viewBox="0 0 140 140"></svg></div>'
-
-    extra_style = ' style="top: 920px;"' if spec.get("shift_down") else ""
-    html = (
-        f'<div id="{oid}" class="ov-location clip"{extra_style} '
-        f'data-start="{start:.3f}" data-duration="{dur:.3f}" '
-        f'data-track-index="{scene_idx * 20 + 15 + spec.get("idx", 0)}">'
-        f"{map_block}"
-        f'<div class="ov-loc-text">'
-        f'<div class="ov-loc-label">{label}</div>'
-        f'<div class="ov-loc-coords">{coords}</div>'
-        f"</div>"
-        f"</div>"
-    )
-    js = [
-        f'gsap.set("#{oid}", {{opacity: 0, x: -100, y: -10}});',
-        f'tl.to("#{oid}", {{opacity: 1, x: 0, y: 0, duration: 0.55, '
-        f'ease: "power3.out"}}, {start:.3f});',
-        f'tl.to("#{oid}", {{opacity: 0, x: -60, duration: 0.4, '
-        f'ease: "power2.in"}}, {(start + dur - 0.4):.3f});',
-        f'tl.set("#{oid}", {{opacity: 0}}, {(start + dur):.3f});',
-    ]
-    if has_map:
-        # D3 mini-map render (sync, runs once at page init)
-        js.append(
-            f"window.__renderMap && window.__renderMap("
-            f'"{map_id}", [{lnglat[0]}, {lnglat[1]}], "{iso}");'
-        )
-    return [html], js
-
-
-def _ov_counter(s_id, scene_idx, scene_start, audio_duration, spec):
-    oid = f"{s_id}_ov_cnt"
-    start = scene_start + 1.0
-    dur = min(4.5, audio_duration - 1.5)
-    try:
-        final_val = int(re.sub(r"\D", "", str(spec.get("value", "0"))))
-    except ValueError:
-        final_val = 0
-    html = (
-        f'<div id="{oid}" class="ov-counter clip" '
-        f'data-start="{start:.3f}" data-duration="{dur:.3f}" '
-        f'data-track-index="{scene_idx * 20 + 15 + spec.get("idx", 0)}">'
-        f'<div class="ov-cnt-label">VICTIMES</div>'
-        f'<div class="ov-cnt-num" id="{oid}_num">0</div>'
-        f'<div class="ov-cnt-bar"><div class="ov-cnt-fill" id="{oid}_fill"></div></div>'
-        f"</div>"
-    )
-    js = [
-        f'gsap.set("#{oid}", {{opacity: 0, y: 30, scale: 0.9}});',
-        f'gsap.set("#{oid}_fill", {{width: "0%"}});',
-        f'tl.to("#{oid}", {{opacity: 1, y: 0, scale: 1, duration: 0.45, '
-        f'ease: "back.out(1.5)"}}, {start:.3f});',
-        # Counter animation
-        f"const {oid}_obj = {{val: 0}};",
-        f'tl.to({oid}_obj, {{val: {final_val}, duration: 2.0, ease: "power2.out", '
-        f'onUpdate: () => {{ const el = document.getElementById("{oid}_num"); '
-        f'if (el) el.innerText = Math.floor({oid}_obj.val).toLocaleString("fr-FR"); }}}}, '
-        f"{(start + 0.4):.3f});",
-        f'tl.to("#{oid}_fill", {{width: "100%", duration: 2.0, ease: "power2.out"}}, '
-        f"{(start + 0.4):.3f});",
-        f'tl.to("#{oid}", {{opacity: 0, y: -20, duration: 0.4, ease: "power2.in"}}, '
-        f"{(start + dur - 0.4):.3f});",
-        f'tl.set("#{oid}", {{opacity: 0}}, {(start + dur):.3f});',
-    ]
-    return [html], js
-
-
-def _ov_dossier(s_id, scene_idx, scene_start, audio_duration, spec):
-    oid = f"{s_id}_ov_dos"
-    start = scene_start + 1.5
-    dur = min(4.0, audio_duration - 2.0)
-    html = (
-        f'<div id="{oid}" class="ov-dossier clip" '
-        f'data-start="{start:.3f}" data-duration="{dur:.3f}" '
-        f'data-track-index="{scene_idx * 20 + 15 + spec.get("idx", 0)}">'
-        f'<div class="ov-dos-paper" id="{oid}_p1"></div>'
-        f'<div class="ov-dos-paper" id="{oid}_p2"></div>'
-        f'<div class="ov-dos-folder">'
-        f'<div class="ov-dos-tab">'
-        f'<span class="ov-ico ov-dos-ico">{ICONS["file"]}</span>'
-        f"CLASSIFIED FILE</div>"
-        f'<div class="ov-dos-body">'
-        f'<div class="ov-dos-line"></div>'
-        f'<div class="ov-dos-line"></div>'
-        f'<div class="ov-dos-line short"></div>'
-        f'<div class="ov-dos-stamp">TOP SECRET</div>'
-        f"</div>"
-        f"</div>"
-        f"</div>"
-    )
-    js = [
-        f'gsap.set("#{oid}", {{opacity: 0, rotation: 8, x: 80}});',
-        f'gsap.set("#{oid}_p1", {{opacity: 0, x: -30, y: -10, rotation: -8}});',
-        f'gsap.set("#{oid}_p2", {{opacity: 0, x: 30, y: -15, rotation: 12}});',
-        f'tl.to("#{oid}", {{opacity: 1, rotation: -3, x: 0, duration: 0.55, '
-        f'ease: "back.out(1.4)"}}, {start:.3f});',
-        # Papers fly out
-        f'tl.to("#{oid}_p1", {{opacity: 0.95, x: -90, y: -50, rotation: -15, '
-        f'duration: 0.7, ease: "power2.out"}}, {(start + 0.4):.3f});',
-        f'tl.to("#{oid}_p2", {{opacity: 0.95, x: 90, y: -40, rotation: 18, '
-        f'duration: 0.7, ease: "power2.out"}}, {(start + 0.55):.3f});',
-        f'tl.to("#{oid}", {{opacity: 0, x: 40, rotation: 10, duration: 0.4, '
-        f'ease: "power2.in"}}, {(start + dur - 0.4):.3f});',
-        f'tl.set("#{oid}", {{opacity: 0}}, {(start + dur):.3f});',
-    ]
-    return [html], js
-
-
-def _ov_redacted(s_id, scene_idx, scene_start, audio_duration, spec):
-    oid = f"{s_id}_ov_red"
-    start = scene_start + 0.8
-    dur = min(3.5, audio_duration - 1.2)
-    bars = "".join(
-        f'<div class="ov-red-bar" id="{oid}_b{i}" style="top:{20 + i * 38}px; width:{180 + (i * 40) % 140}px;"></div>'
-        for i in range(4)
-    )
-    html = (
-        f'<div id="{oid}" class="ov-redacted clip" '
-        f'data-start="{start:.3f}" data-duration="{dur:.3f}" '
-        f'data-track-index="{scene_idx * 20 + 15 + spec.get("idx", 0)}">'
-        f'<div class="ov-red-stamp">REDACTED</div>'
-        f"{bars}"
-        f"</div>"
-    )
-    js = [f'gsap.set("#{oid}", {{opacity: 1}});']
-    for i in range(4):
-        bid = f"{oid}_b{i}"
-        js.append(f'gsap.set("#{bid}", {{scaleX: 0, transformOrigin: "left"}});')
-        js.append(
-            f'tl.to("#{bid}", {{scaleX: 1, duration: 0.25, ease: "power3.out"}}, '
-            f"{(start + 0.1 + i * 0.08):.3f});"
-        )
-    js.append(
-        f'gsap.set("#{oid} .ov-red-stamp", {{opacity: 0, scale: 0.5, rotation: 0}});'
-    )
-    js.append(
-        f'tl.to("#{oid} .ov-red-stamp", {{opacity: 1, scale: 1, rotation: -12, '
-        f'duration: 0.3, ease: "back.out(2.5)"}}, {(start + 0.5):.3f});'
-    )
-    js.append(
-        f'tl.to("#{oid}", {{opacity: 0, duration: 0.4, ease: "power2.in"}}, '
-        f"{(start + dur - 0.4):.3f});"
-    )
-    js.append(f'tl.set("#{oid}", {{opacity: 0}}, {(start + dur):.3f});')
-    return [html], js
-
-
-def _ov_entity(s_id, scene_idx, scene_start, audio_duration, spec):
-    oid = f"{s_id}_ov_ent"
-    start = scene_start + 1.0
-    dur = min(4.5, audio_duration - 1.5)
-    html = (
-        f'<div id="{oid}" class="ov-entity clip" '
-        f'data-start="{start:.3f}" data-duration="{dur:.3f}" '
-        f'data-track-index="{scene_idx * 20 + 15 + spec.get("idx", 0)}">'
-        f'<svg class="ov-ent-radar" viewBox="0 0 200 200">'
-        f'<circle cx="100" cy="100" r="90" fill="none" stroke="#ff2424" stroke-width="2" opacity="0.6"/>'
-        f'<circle cx="100" cy="100" r="60" fill="none" stroke="#ff2424" stroke-width="1.5" opacity="0.45"/>'
-        f'<circle cx="100" cy="100" r="30" fill="none" stroke="#ff2424" stroke-width="1" opacity="0.3"/>'
-        f'<line x1="100" y1="100" x2="100" y2="10" stroke="#ff2424" stroke-width="2" opacity="0.8">'
-        f'<animateTransform attributeName="transform" type="rotate" '
-        f'from="0 100 100" to="360 100 100" dur="2.2s" repeatCount="indefinite"/>'
-        f"</line>"
-        f'<circle cx="100" cy="100" r="4" fill="#ff2424"/>'
-        f'<circle cx="140" cy="78" r="6" fill="#ff8080">'
-        f'<animate attributeName="opacity" values="1;0.2;1" dur="0.8s" repeatCount="indefinite"/>'
-        f"</circle>"
-        f'<circle cx="65" cy="135" r="5" fill="#ff8080">'
-        f'<animate attributeName="opacity" values="0.3;1;0.3" dur="1.1s" repeatCount="indefinite"/>'
-        f"</circle>"
-        f"</svg>"
-        f'<div class="ov-ent-text">'
-        f'<div class="ov-ent-label">⚠ ENTITÉ DÉTECTÉE</div>'
-        f'<div class="ov-ent-sub">NATURE : INCONNUE</div>'
-        f"</div>"
-        f"</div>"
-    )
-    js = [
-        f'gsap.set("#{oid}", {{opacity: 0, scale: 0.7, rotation: -8}});',
-        f'tl.to("#{oid}", {{opacity: 1, scale: 1, rotation: 0, duration: 0.5, '
-        f'ease: "back.out(1.8)"}}, {start:.3f});',
-        # Pulse continu
-        f'tl.to("#{oid}", {{scale: 1.04, duration: 0.5, yoyo: true, repeat: 5, '
-        f'ease: "sine.inOut"}}, {(start + 0.6):.3f});',
-        f'tl.to("#{oid}", {{opacity: 0, scale: 0.85, duration: 0.4, ease: "power2.in"}}, '
-        f"{(start + dur - 0.4):.3f});",
-        f'tl.set("#{oid}", {{opacity: 0}}, {(start + dur):.3f});',
-    ]
-    return [html], js
-
-
-def _ov_person(s_id, scene_idx, scene_start, audio_duration, spec):
-    oid = f"{s_id}_ov_per"
-    start = scene_start + 0.7
-    dur = min(5.0, audio_duration - 1.2)
-    name = html_escape(spec["value"])
-    role = html_escape(spec.get("role", "WITNESS"))
-    initials = "".join([p[0].upper() for p in spec["value"].split()[:2]])
-    html = (
-        f'<div id="{oid}" class="ov-person clip" '
-        f'data-start="{start:.3f}" data-duration="{dur:.3f}" '
-        f'data-track-index="{scene_idx * 20 + 15 + spec.get("idx", 0)}">'
-        f'<div class="ov-per-card">'
-        f'<div class="ov-per-avatar">'
-        f'<div class="ov-per-initials">{initials}</div>'
-        f'<div class="ov-per-scan"></div>'
-        f"</div>"
-        f'<div class="ov-per-info">'
-        f'<div class="ov-per-id">'
-        f'<span class="ov-ico ov-per-ico">{ICONS["eye"]}</span>'
-        f"ID #{(scene_idx * 7919) % 99999:05d}</div>"
-        f'<div class="ov-per-name">{name}</div>'
-        f'<div class="ov-per-role">{role}</div>'
-        f'<div class="ov-per-status">◉ STATUT : ACTIF</div>'
-        f"</div>"
-        f"</div>"
-        f"</div>"
-    )
-
-
-def _ov_generative_agent(s_id, scene_idx, scene_start, audio_duration, spec):
-    # Deprecated: generative agent visual overlays are disabled due to RCE risks.
-    # Use structured SceneDirectorPlan instead.
-    return [], []
-
-
-def _ov_map_zoom(s_id, scene_idx, scene_start, audio_duration, spec):
-    oid = f"{s_id}_ov_mapz"
-    start = scene_start
-    dur = audio_duration
-    label = html_escape(spec["value"])
-    iso = spec.get("iso") or ""
-    lnglat = spec.get("lnglat") or [0, 0]
-    map_id = f"{oid}_fs_map"
-
-    html = (
-        f'<div id="{oid}" class="ov-map-zoom clip" '
-        f'data-start="{start:.3f}" data-duration="{dur:.3f}" '
-        f'data-track-index="{scene_idx * 20 + 15 + spec.get("idx", 0)}" '
-        f'style="position:absolute; inset:0; z-index:15; overflow:hidden;">'
-        f'<div class="fs-map-container" id="{oid}_container" style="position:absolute; width:1080px; height:1920px; left:0; top:0;">'
-        f'<svg id="{map_id}" viewBox="0 0 1080 1920" style="width:100%; height:100%; background:var(--bg-deep);"></svg>'
-        f"</div>"
-        f'<div class="map-overlay-ui" style="position:absolute; inset:0; pointer-events:none; z-index:16;">'
-        # Grid lines
-        f'<div style="position:absolute; top:50%; left:0; right:0; height:1px; background:rgba(255,56,56,0.3);"></div>'
-        f'<div style="position:absolute; left:50%; top:0; bottom:0; width:1px; background:rgba(255,56,56,0.3);"></div>'
-        # Crosshair center
-        f'<div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:120px; height:120px; border:2px solid var(--accent); border-radius:50%; box-shadow:0 0 20px rgba(255,56,56,0.5);"></div>'
-        # Top Text
-        f'<div style="position:absolute; top:120px; left:0; right:0; text-align:center;">'
-        f'<div style="color:var(--accent); font-family:var(--font-display2); font-size:36px; letter-spacing:14px; text-transform:uppercase;">SATELLITE LINK ESTABLISHED</div>'
-        f'<div style="color:white; font-family:var(--font-display); font-size:110px; line-height:1; margin-top:20px; letter-spacing:4px;">{label}</div>'
-        f'<div style="color:var(--muted); font-family:var(--font-mono); font-size:24px; margin-top:20px; letter-spacing:4px;">COORD: {lnglat[0]:.4f}, {lnglat[1]:.4f}</div>'
-        f"</div>"
-        f"</div>"
-        f"</div>"
-    )
-
-    js = [
-        f'gsap.set("#{oid}", {{opacity: 0}});',
-        f'tl.to("#{oid}", {{opacity: 1, duration: 0.6, ease: "power2.out"}}, {start:.3f});',
-        # Zoom effect on the SVG container
-        f'gsap.set("#{oid}_container", {{scale: 1.0, transformOrigin: "50% 50%"}});',
-        f'tl.to("#{oid}_container", {{scale: 4.5, duration: {dur:.3f}, ease: "power2.inOut"}}, {start:.3f});',
-        f'tl.to("#{oid}", {{opacity: 0, duration: 0.6, ease: "power2.in"}}, {(start + dur - 0.6):.3f});',
-        f'window.__renderMap && window.__renderMap("{map_id}", [{lnglat[0]}, {lnglat[1]}], "{iso}", 1080, 1920);',
-    ]
-    return [html], js
-
-
 OVERLAY_BUILDERS = {otype: _ov_sem_card for otype in SEMANTIC_ANIMATION_TYPES}
 OVERLAY_BUILDERS.update(
     {
@@ -3929,9 +3602,7 @@ def build_curated_lottie_accents(
         specs, scene_idx, frame_w=WIDTH, frame_h=HEIGHT, fps=FPS
     )
     if html:
-        print(
-            f"   🎞️  Lottie Yūrei : {[spec['asset_id'] for spec in specs]}"
-        )
+        print(f"   🎞️  Lottie Yūrei : {[spec['asset_id'] for spec in specs]}")
     return html, js
 
 
@@ -4365,25 +4036,25 @@ def build_image_block(
     atmo_direction = 1 if (scene_idx + j) % 2 == 0 else -1
     js.append(
         f'gsap.set("#{atmo_id}", {{opacity:0, x:{-150 * atmo_direction}, '
-        f'y:{30 if j % 2 == 0 else -30}, scale:1.04, rotation:{-3 * atmo_direction}}});'
+        f"y:{30 if j % 2 == 0 else -30}, scale:1.04, rotation:{-3 * atmo_direction}}});"
     )
     js.append(
         f'tl.to("#{atmo_id}", {{opacity:0.28, duration:0.55, ease:"power2.out"}}, '
-        f'{start:.3f});'
+        f"{start:.3f});"
     )
     js.append(
         f'tl.to("#{atmo_id}", {{x:{150 * atmo_direction}, '
-        f'y:{-36 if j % 2 == 0 else 36}, scale:1.24, rotation:{3 * atmo_direction}, duration:{dur:.3f}, '
+        f"y:{-36 if j % 2 == 0 else 36}, scale:1.24, rotation:{3 * atmo_direction}, duration:{dur:.3f}, "
         f'ease:"sine.inOut"}}, {start:.3f});'
     )
     js.append(
         f'tl.to("#{atmo_id}", {{opacity:0.36, duration:{max(0.35, dur * 0.20):.3f}, '
         f'ease:"sine.inOut", yoyo:true, repeat:1}}, '
-        f'{(start + dur * 0.34):.3f});'
+        f"{(start + dur * 0.34):.3f});"
     )
     js.append(
         f'tl.to("#{atmo_id}", {{opacity:0, duration:0.45, ease:"power2.in"}}, '
-        f'{max(start, start + dur - 0.45):.3f});'
+        f"{max(start, start + dur - 0.45):.3f});"
     )
 
     # Masquer l'image proprement à la fin de sa durée pour éviter les chevauchements
@@ -4528,29 +4199,6 @@ def build_true_story_card(s_id, scene_idx, card_start, hold_duration, subtitle_s
         f'tl.set("#{oid}", {{opacity: 0}}, {(start + dur):.3f});',
     ]
     return html, js
-
-
-def _derive_hook_title(subtitle_src):
-    """Extrait 2-4 mots punch du hook narratif pour la headline d'intro."""
-    txt = (subtitle_src or "").strip()
-    if not txt:
-        return "AFFAIRE", "NON RÉSOLUE"
-    folded = _fold_text(txt)
-    if _has_keyword(
-        folded, ["disparu", "disparait", "disparition", "evapore", "evanoui"]
-    ):
-        return "DISPARU", "SANS TRACE"
-    if _has_keyword(folded, ["meurtre", "tue", "assassin", "cadavre", "victime"]):
-        return "AFFAIRE", "NON RÉSOLUE"
-    if _has_keyword(folded, ["base", "souterrain", "secret", "classifie", "dossier"]):
-        return "DOSSIER", "CLASSIFIÉ"
-    if _has_keyword(
-        folded, ["alien", "ovni", "extraterrestre", "rendlesham", "mothman"]
-    ):
-        return "RAPPORT", "INEXPLIQUÉ"
-    if _has_keyword(folded, ["experience", "experiment", "controle", "mkultra"]):
-        return "EXPÉRIENCE", "INTERDITE"
-    return "AFFAIRE", "NON RÉSOLUE"
 
 
 def build_hook_intro(s_id, scene_idx, scene_start, audio_duration, subtitle_src=""):
@@ -4949,9 +4597,7 @@ def _wrap_words_for_reveal(html, id_prefix=None):
     rendered = " ".join(out)
     rendered = re.sub(
         r"(</span>)(</span>)?\s*([,.:;!?…]+)",
-        lambda match: (
-            f"{match.group(3)}{match.group(1)}{match.group(2) or ''}"
-        ),
+        lambda match: f"{match.group(3)}{match.group(1)}{match.group(2) or ''}",
         rendered,
     )
     rendered = re.sub(r"\s+([,.…])", r"\1", rendered)
@@ -5566,44 +5212,6 @@ def build_html(projet_name, scenes_meta, total_duration):
         background: #fff; opacity: 0;
       }}
 
-      /* ── 5 transitions inter-scènes alternées ──────────────── */
-      .trans-flash-white {{
-        position: absolute; inset: 0; z-index: 800; pointer-events: none;
-        background: #fff; opacity: 0;
-      }}
-      .trans-rgb-glitch {{
-        position: absolute; inset: 0; z-index: 800; pointer-events: none;
-        opacity: 0;
-      }}
-      .trans-rgb-glitch .rgb-r, .trans-rgb-glitch .rgb-c {{
-        position: absolute; inset: 0; pointer-events: none;
-        mix-blend-mode: screen;
-      }}
-      .trans-rgb-glitch .rgb-r {{ background: rgba(255,40,40,0.55); }}
-      .trans-rgb-glitch .rgb-c {{ background: rgba(0,200,255,0.45); }}
-      .trans-zoom-blur {{
-        position: absolute; inset: 0; z-index: 800; pointer-events: none;
-        background: radial-gradient(circle at center,
-          rgba(255,255,255,0.92) 0%,
-          rgba(255,255,255,0.65) 20%,
-          rgba(255,255,255,0.0) 60%);
-        opacity: 0; transform-origin: center;
-        filter: blur(8px);
-      }}
-      .trans-hard-cut {{
-        position: absolute; inset: 0; z-index: 800; pointer-events: none;
-        background: #000; opacity: 0;
-      }}
-      .trans-red-fade {{
-        position: absolute; inset: 0; z-index: 800; pointer-events: none;
-        background: radial-gradient(ellipse 80% 100% at center,
-          rgba(180,30,30,0.85) 0%,
-          rgba(120,10,10,0.55) 50%,
-          rgba(40,0,0,0.45) 100%);
-        opacity: 0;
-        mix-blend-mode: multiply;
-      }}
-
       /* ── WHIP BLUR cinéma : voile flou qui traverse l'écran ─────
          backdrop-filter rend flou le contenu derrière. Combiné avec
          translateX, ça donne l'effet "panoramique flou" qui masque le cut
@@ -5627,21 +5235,6 @@ def build_html(projet_name, scenes_meta, total_duration):
       }}
 
       /* Scanning Laser Line */
-      @keyframes scanning-laser {{
-        0% {{ transform: translateY(-100%); opacity: 0; }}
-        10% {{ opacity: 1; }}
-        90% {{ opacity: 1; }}
-        100% {{ transform: translateY(100%); opacity: 0; }}
-      }}
-      .scanline-laser {{
-        position: absolute; top: 0; left: 0; width: 100%; height: 3px;
-        background: var(--accent);
-        box-shadow: 0 0 15px var(--accent), 0 0 30px var(--accent);
-        z-index: 60;
-        pointer-events: none;
-        animation: scanning-laser 6s linear infinite;
-        opacity: 0;
-      }}
 
       /* Glitch Layer */
       .glitch-layer {{
@@ -5653,51 +5246,10 @@ def build_html(projet_name, scenes_meta, total_duration):
         opacity: 0;
       }}
 
-      /* ── CLASSIFIED tag : minimal, plus éditorial ───────────── */
-      .classified-tag {{
-        position: absolute; top: 110px; left: 60px;
-        z-index: 30; opacity: 0;
-        display: flex; align-items: center; gap: 12px;
-        font-family: var(--font-display2);  /* Bebas Neue */
-        font-size: 26px; font-weight: 400; letter-spacing: 8px;
-        color: var(--accent);
-        text-transform: uppercase;
-      }}
-      .classified-tag .ico {{
-        width: 22px; height: 22px;
-        display: inline-flex; align-items: center; justify-content: center;
-      }}
-      .classified-tag .ico svg {{ width: 100%; height: 100%; stroke: var(--accent); }}
-
       /* ── HOOK INTRO (scène 1) : punch d'ouverture TikTok ──── */
       .hook-intro {{
         position: absolute; inset: 0; z-index: 90;
         pointer-events: none; opacity: 0;
-      }}
-      .hook-case-tag {{
-        position: absolute; top: 240px; left: 50%;
-        transform: translateX(-50%) scale(0.7);
-        z-index: 92;
-        font-family: var(--font-display2);
-        font-size: 38px; font-weight: 400; letter-spacing: 10px;
-        color: var(--accent);
-        text-transform: uppercase;
-        padding: 18px 36px;
-        border: 2px solid var(--accent);
-        background: rgba(0,0,0,0.78);
-        backdrop-filter: blur(6px);
-        text-shadow: 0 0 18px rgba(255,56,56,0.85);
-        box-shadow: 0 0 32px rgba(255,56,56,0.35), inset 0 0 24px rgba(255,56,56,0.18);
-        opacity: 0;
-        white-space: nowrap;
-      }}
-      .hook-case-tag::before {{
-        content: "● "; color: var(--accent);
-        animation: hook-blink 0.9s steps(1,end) infinite;
-      }}
-      @keyframes hook-blink {{
-        0%, 60% {{ opacity: 1; }}
-        61%, 100% {{ opacity: 0; }}
       }}
       .hook-title {{
         position: absolute; top: 340px; left: 50%;
@@ -5719,16 +5271,6 @@ def build_html(projet_name, scenes_meta, total_duration):
         opacity: 0;
       }}
       .hook-title .accent {{ color: var(--accent); }}
-      .hook-rgb-r, .hook-rgb-b {{
-        position: absolute; inset: 0; z-index: 91;
-        pointer-events: none; opacity: 0;
-        mix-blend-mode: screen;
-      }}
-      .hook-flash-red {{
-        position: absolute; inset: 0; z-index: 95;
-        background: radial-gradient(circle at center, rgba(255,56,56,0.55) 0%, rgba(255,56,56,0.0) 60%);
-        opacity: 0; pointer-events: none;
-      }}
 
       /* ── OUTRO CTA (dernière scène) : "Quelle théorie ?" ──── */
       .outro-cta {{
@@ -5767,18 +5309,6 @@ def build_html(projet_name, scenes_meta, total_duration):
         text-shadow: 0 4px 18px rgba(0,0,0,0.95);
       }}
       .outro-cta-sub .accent {{ color: var(--accent); }}
-      .outro-cta-arrow {{
-        display: block;
-        margin: 30px auto 0;
-        font-family: var(--font-display);
-        font-size: 64px;
-        color: var(--accent);
-        animation: outro-bounce 0.7s ease-in-out infinite alternate;
-      }}
-      @keyframes outro-bounce {{
-        0%   {{ transform: translateY(0); opacity: 1; }}
-        100% {{ transform: translateY(14px); opacity: 0.5; }}
-      }}
 
       /* ── Director layer: premium deterministic motion ─────── */
       .dir-layer {{
@@ -5849,13 +5379,6 @@ def build_html(projet_name, scenes_meta, total_duration):
         background: linear-gradient(90deg, transparent, rgba(255,56,56,0.86), transparent);
         opacity: 0.9;
       }}
-
-      /* ── Icon wrappers générique ────────────────────────────── */
-      .ov-ico {{
-        display: inline-flex; align-items: center; justify-content: center;
-        flex-shrink: 0;
-      }}
-      .ov-ico svg {{ width: 100%; height: 100%; }}
 
       /* ── Subtitle : type comme héros, centré, pas de fond ──── */
       .subtitle {{
@@ -5933,231 +5456,6 @@ def build_html(projet_name, scenes_meta, total_duration):
         width: 4px; height: 4px;
         background: rgba(255, 56, 56, 0.6);
         box-shadow: 0 0 8px rgba(255, 56, 56, 0.5);
-      }}
-
-      /* ── D3 mini-map dans la card location ──────────────────── */
-      .ov-loc-map {{
-        width: 140px; height: 140px;
-        flex-shrink: 0;
-        background: rgba(0,0,0,0.4);
-        border: 1px solid var(--border);
-        position: relative; overflow: hidden;
-      }}
-      .ov-loc-map svg {{ width: 100%; height: 100%; display: block; }}
-      .ov-loc-map .country-bg {{
-        fill: rgba(255,255,255,0.06);
-        stroke: rgba(255,255,255,0.20);
-        stroke-width: 0.4;
-      }}
-      .ov-loc-map .country-hl {{
-        fill: rgba(255, 56, 56, 0.18);
-        stroke: var(--accent);
-        stroke-width: 0.7;
-      }}
-      .ov-loc-map .pin-pulse {{ fill: none; stroke: var(--accent); stroke-width: 1.2; }}
-      .ov-loc-map .pin-dot   {{ fill: var(--accent); }}
-      /* Petite marque tactique sous le sous-titre */
-      .subtitle-rule {{
-        position: absolute; bottom: 270px; left: 50%;
-        transform: translateX(-50%);
-        width: 60px; height: 2px; background: var(--accent);
-        z-index: 19; opacity: 0;
-      }}
-
-      /* ── Semantic overlays : éditorial épuré ────────────────── */
-      /* YEAR — typographie éditoriale dominante, top-center */
-      .ov-year {{
-        position: absolute; top: 200px; left: 0; right: 0;
-        z-index: 25; opacity: 0;
-        text-align: center;
-        font-family: var(--font-display);  /* Anton */
-        font-size: 420px; font-weight: 400; line-height: 0.82;
-        letter-spacing: 0;
-        color: var(--text);
-      }}
-      .ov-year-label {{
-        display: block;
-        font-family: var(--font-display2);  /* Bebas Neue */
-        font-size: 26px; font-weight: 400;
-        letter-spacing: 14px; color: var(--accent);
-        margin-bottom: 18px; text-transform: uppercase;
-      }}
-
-      /* LOCATION — barre horizontale sobre, top-left */
-      .ov-location {{
-        position: absolute; top: 220px; left: 60px;
-        z-index: 25; opacity: 0;
-        display: flex; align-items: center; gap: 18px;
-        padding: 18px 24px;
-        background: var(--surface);
-        border-left: 2px solid var(--accent);
-        backdrop-filter: blur(6px);
-      }}
-      .ov-pin {{ width: 30px; height: 38px; flex-shrink: 0; }}
-      .ov-loc-text {{ display: flex; flex-direction: column; gap: 4px; }}
-      .ov-loc-label {{
-        color: var(--text); font-size: 26px; font-weight: 800;
-        letter-spacing: 1.5px;
-      }}
-      .ov-loc-coords {{
-        color: var(--muted); font-size: 16px; font-weight: 500;
-        letter-spacing: 1.2px; font-family: var(--font-mono);
-      }}
-
-      /* COUNTER — chiffre dominant + barre minimale, top-right */
-      .ov-counter {{
-        position: absolute; top: 240px; right: 60px;
-        z-index: 25; opacity: 0;
-        display: flex; flex-direction: column; gap: 12px;
-        min-width: 320px; text-align: right;
-      }}
-      .ov-cnt-label {{
-        color: var(--accent);
-        font-family: var(--font-display2);
-        font-size: 22px; font-weight: 400;
-        letter-spacing: 10px; text-transform: uppercase;
-      }}
-      .ov-cnt-num {{
-        color: var(--text);
-        font-family: var(--font-display);  /* Anton */
-        font-size: 180px; font-weight: 400; line-height: 0.88;
-        letter-spacing: 0;
-      }}
-      .ov-cnt-bar {{
-        width: 100%; height: 2px; background: var(--border);
-        overflow: hidden; margin-top: 8px;
-      }}
-      .ov-cnt-fill {{
-        height: 100%; width: 0%; background: var(--accent);
-      }}
-
-      /* DOSSIER — fiche minimale "scan en cours" */
-      .ov-dossier {{
-        position: absolute; top: 280px; left: 60px;
-        width: 380px; z-index: 25; opacity: 0;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        backdrop-filter: blur(6px);
-      }}
-      .ov-dos-folder {{
-        position: relative; padding: 22px 24px;
-      }}
-      .ov-dos-tab {{
-        display: inline-flex; align-items: center; gap: 8px;
-        font-family: var(--font-display2);
-        font-size: 18px; font-weight: 400; letter-spacing: 6px;
-        color: var(--accent); text-transform: uppercase;
-        margin-bottom: 18px;
-      }}
-      .ov-dos-ico {{ width: 16px; height: 16px; }}
-      .ov-dos-ico svg {{ stroke: var(--accent); }}
-      .ov-dos-body {{
-        display: flex; flex-direction: column; gap: 12px;
-        padding: 8px 0 16px 0;
-      }}
-      .ov-dos-line {{ height: 3px; background: var(--text); opacity: 0.65; width: 100%; }}
-      .ov-dos-line.short {{ width: 50%; }}
-      .ov-dos-stamp {{
-        display: block; margin-top: 18px;
-        color: var(--accent); font-size: 18px; font-weight: 900;
-        letter-spacing: 4px;
-        border: 1.5px solid var(--accent); padding: 6px 14px;
-        text-align: center;
-      }}
-      .ov-dos-paper {{ display: none; }}
-
-      /* REDACTED — barres minimales noires + tag rouge */
-      .ov-redacted {{
-        position: absolute; top: 300px; left: 60px; right: 60px;
-        height: 220px; z-index: 25; opacity: 1;
-        pointer-events: none;
-      }}
-      .ov-red-bar {{
-        position: absolute; left: 0;
-        height: 22px; background: var(--text);
-      }}
-      .ov-red-stamp {{
-        position: absolute; top: 110px; right: 0;
-        color: var(--accent); font-size: 28px; font-weight: 900;
-        letter-spacing: 6px; border: 1.5px solid var(--accent);
-        padding: 6px 14px;
-      }}
-
-      /* ENTITY — alerte sobre */
-      .ov-entity {{
-        position: absolute; top: 240px; right: 60px;
-        z-index: 25; opacity: 0;
-        display: flex; align-items: center; gap: 18px;
-        padding: 18px 24px;
-        background: var(--surface);
-        border-left: 2px solid var(--accent);
-        backdrop-filter: blur(6px);
-      }}
-      .ov-ent-radar {{ width: 70px; height: 70px; flex-shrink: 0; }}
-      .ov-ent-text {{ display: flex; flex-direction: column; gap: 4px; }}
-      .ov-ent-label {{
-        color: var(--text); font-size: 22px; font-weight: 800;
-        letter-spacing: 2.5px; text-transform: uppercase;
-      }}
-      .ov-ent-sub {{
-        color: var(--muted); font-size: 14px; font-weight: 600;
-        letter-spacing: 2.5px;
-        font-family: var(--font-mono);
-      }}
-
-      /* PERSON — fiche profile éditoriale */
-      .ov-person {{
-        position: absolute; top: 220px; left: 60px;
-        z-index: 25; opacity: 0;
-      }}
-      .ov-per-card {{
-        display: flex; gap: 22px; padding: 22px;
-        background: var(--surface);
-        border-left: 2px solid var(--accent);
-        backdrop-filter: blur(6px);
-        min-width: 440px;
-      }}
-      .ov-per-avatar {{
-        position: relative; width: 100px; height: 130px;
-        background: rgba(255,255,255,0.04);
-        border: 1px solid var(--border);
-        display: flex; align-items: center; justify-content: center;
-        overflow: hidden;
-      }}
-      .ov-per-initials {{
-        color: var(--accent); font-size: 44px; font-weight: 900;
-        letter-spacing: 0;
-      }}
-      .ov-per-scan {{
-        position: absolute; left: 0; right: 0; height: 1.5px;
-        background: var(--accent);
-      }}
-      .ov-per-info {{
-        display: flex; flex-direction: column; gap: 7px;
-        justify-content: center; min-width: 240px;
-      }}
-      .ov-per-id {{
-        display: flex; align-items: center; gap: 6px;
-        color: var(--muted); font-size: 13px; font-weight: 600;
-        letter-spacing: 2.5px;
-        font-family: var(--font-mono);
-        text-transform: uppercase;
-      }}
-      .ov-per-ico {{ width: 14px; height: 14px; }}
-      .ov-per-ico svg {{ stroke: var(--muted); }}
-      .ov-per-name {{
-        color: var(--text); font-size: 30px; font-weight: 800;
-        letter-spacing: 0;
-      }}
-      .ov-per-role {{
-        color: var(--accent); font-size: 14px; font-weight: 700;
-        letter-spacing: 3.5px; text-transform: uppercase;
-      }}
-      .ov-per-status {{
-        color: var(--muted); font-size: 12px; font-weight: 600;
-        letter-spacing: 2.5px;
-        font-family: var(--font-mono);
-        margin-top: 6px;
       }}
 
       /* ── Semantic animation pack v2 : 40 familles déterministes ─ */
@@ -7859,8 +7157,7 @@ def normalize_loudness_master(video_path):
         if abs(correction_db) > 0.2:
             corrected_path = video_path.with_name(f"{video_path.stem}.corrected.mp4")
             correction_filter = (
-                f"volume={correction_db:.2f}dB,"
-                "alimiter=limit=0.841395:level=false"
+                f"volume={correction_db:.2f}dB,alimiter=limit=0.841395:level=false"
             )
             correction_cmd = [
                 "ffmpeg",
@@ -7882,9 +7179,7 @@ def normalize_loudness_master(video_path):
                 "192k",
                 str(corrected_path),
             ]
-            corrected = subprocess.run(
-                correction_cmd, capture_output=True, text=True
-            )
+            corrected = subprocess.run(correction_cmd, capture_output=True, text=True)
             if corrected.returncode == 0 and corrected_path.exists():
                 corrected_path.replace(video_path)
                 measured = measure_loudness(video_path) or measured
@@ -7898,8 +7193,7 @@ def normalize_loudness_master(video_path):
         )
     else:
         print(
-            f"   ✅ Master finalisé vers {TARGET_LUFS:.1f} LUFS "
-            "avec true peak protégé"
+            f"   ✅ Master finalisé vers {TARGET_LUFS:.1f} LUFS avec true peak protégé"
         )
 
 
@@ -8004,17 +7298,14 @@ def mix_audio_post_render(
         music_idx = input_idx
         input_idx += 1
         music_chain = (
-            f"[{music_idx}:a]aloop=loop=-1:size=2e9,"
-            f"volume={POST_MIX_MUSIC_VOLUME:.3f}"
+            f"[{music_idx}:a]aloop=loop=-1:size=2e9,volume={POST_MIX_MUSIC_VOLUME:.3f}"
         )
         if USE_DRAMATIC_SILENCE:
             for event in dramatic_events or []:
                 t = float(event["time"])
                 start = max(0.0, t - 0.85)
                 end = t + 0.55
-                music_chain += (
-                    f",volume=0:enable='between(t,{start:.3f},{end:.3f})'"
-                )
+                music_chain += f",volume=0:enable='between(t,{start:.3f},{end:.3f})'"
         filter_parts.append(music_chain + "[music_raw];")
         # voice_sc = copie dédiée au sidechain (ne sera pas réutilisée)
         filter_parts.append(

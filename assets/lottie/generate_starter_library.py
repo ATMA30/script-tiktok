@@ -102,46 +102,6 @@ def rect_shape(w: float, h: float, fill_rgba: list, opacity: float = 100) -> lis
     ]
 
 
-def ellipse_shape(w: float, h: float, fill_rgba: list, opacity: float = 100) -> list:
-    return [
-        {
-            "ty": "el",
-            "d": 1,
-            "s": {"a": 0, "k": [w, h]},
-            "p": {"a": 0, "k": [0, 0]},
-            "nm": "Ellipse",
-        },
-        {
-            "ty": "fl",
-            "c": {"a": 0, "k": fill_rgba[:3] + [1.0]},
-            "o": {"a": 0, "k": opacity * fill_rgba[3]},
-            "r": 1,
-            "nm": "Fill",
-        },
-    ]
-
-
-def stroked_ellipse(w: float, h: float, stroke_rgba: list, width: float,
-                    opacity: float = 100) -> list:
-    return [
-        {
-            "ty": "el",
-            "d": 1,
-            "s": {"a": 0, "k": [w, h]},
-            "p": {"a": 0, "k": [0, 0]},
-            "nm": "Ellipse",
-        },
-        {
-            "ty": "st",
-            "c": {"a": 0, "k": stroke_rgba[:3] + [1.0]},
-            "o": {"a": 0, "k": opacity * stroke_rgba[3]},
-            "w": {"a": 0, "k": width},
-            "lc": 2, "lj": 2, "ml": 4,
-            "nm": "Stroke",
-        },
-    ]
-
-
 def keyframe(t: int, value) -> dict:
     """Linear keyframe at frame `t` with `value`."""
     return {"t": t, "s": value if isinstance(value, list) else [value]}

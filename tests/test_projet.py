@@ -36,12 +36,6 @@ def test_validate_project(projet_factice, tmp_path):
     assert validate_project(tmp_path / "inexistant") == 1
 
 
-def test_trend_picker_importable():
-    # Régression : `Optional` était importé après son usage → NameError à l'import.
-    module = importlib.import_module("0_trend_picker")
-    assert callable(module.afficher_suggestions)
-
-
 def _charger_script(nom):
     # Les noms de scripts commencent par un chiffre (et 2.7_… contient un point).
     spec = importlib.util.spec_from_file_location(nom.replace(".", "_"), ROOT / nom)

@@ -1,32 +1,19 @@
 """
-Point d'entrée de l'usine.
+Point d'entrée de l'usine : vidéos true crime / faits divers.
 
-⚠️ PIVOT : le mode principal est désormais la SÉRIE DRAMATIQUE 1ʳᵉ PERSONNE,
-avec workflow de validation obligatoire (synopsis → épisode par épisode).
-→ `python 0_usine.py`  délègue à `0_serie.py`.
-
-L'ancien pipeline TRUE-CRIME automatique (sans validation) reste disponible,
-mais débranché du flow principal :
-→ `python 0_usine.py --legacy-truecrime [N]`
+→ `python 0_usine.py [N]`  enchaîne N vidéos (cerveau + étapes 1 à 5).
 """
 
-import subprocess
-import time
-import sys
 import os
+import subprocess
+import sys
+import time
 
 
-def demarrer_serie():
-    """Mode principal : orchestrateur série dramatique (0_serie.py)."""
-    subprocess.run(
-        [sys.executable, "0_serie.py"], cwd=os.path.dirname(os.path.abspath(__file__))
-    )
-
-
-def demarrer_usine_legacy(nombre: int):
-    """LEGACY — ancien pipeline true-crime automatique (true-crime, sans gate de validation)."""
+def demarrer_usine(nombre: int):
+    """Pipeline complet : scénario sourcé, voix, musique, plan visuel, médias, rendu."""
     print("══════════════════════════════════════════════════════")
-    print("   🎬 [LEGACY] USINE TRUE-CRIME — PIPELINE AUTO 🎬 ")
+    print("   🎬 USINE TRUE CRIME / FAITS DIVERS 🎬 ")
     print("══════════════════════════════════════════════════════")
     python_cmd = sys.executable
     os.makedirs("musiques", exist_ok=True)
@@ -64,9 +51,5 @@ def demarrer_usine_legacy(nombre: int):
 
 
 if __name__ == "__main__":
-    if "--legacy-truecrime" in sys.argv:
-        # Récupère le nombre éventuel (dernier argument numérique), défaut 1.
-        nums = [int(a) for a in sys.argv[1:] if a.isdigit()]
-        demarrer_usine_legacy(nums[0] if nums else 1)
-    else:
-        demarrer_serie()
+    nums = [int(a) for a in sys.argv[1:] if a.isdigit()]
+    demarrer_usine(nums[0] if nums else 1)

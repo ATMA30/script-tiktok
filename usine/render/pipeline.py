@@ -364,6 +364,7 @@ def render_projet(projet_dir, do_check=False, prepare_only=False):
         scenes_data,
         total,
         dramatic_events=dramatic_events,
+        musique_path=music_path,
     )
     print(f"\n✅ Final : {final}  ({final.stat().st_size // 1024} KB)")
 

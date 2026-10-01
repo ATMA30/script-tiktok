@@ -1,7 +1,6 @@
 """Audio final : musique d'ambiance, ruptures dramatiques, loudness et mixage post-rendu."""
 
 import re
-import shutil
 import subprocess
 from pathlib import Path
 from usine.render.config import (
@@ -218,6 +217,61 @@ def normalize_loudness_master(video_path):
         )
 
 
+def _trouver_musique(projet_dir):
+    """Musique d'ambiance du projet : dans le projet, puis dans ROOT/musiques."""
+    nom = Path(projet_dir).name
+    for dossier in (Path(projet_dir), ROOT / "musiques"):
+        for ext in (".mp3", ".wav"):
+            candidat = dossier / f"{nom}_ambient{ext}"
+            if candidat.exists():
+                return candidat
+    return None
+
+
+def construire_filtre_mix(delais_voix_ms, avec_sfx, chaine_musique):
+    """Graphe -filter_complex du mixage final.
+
+    Entrées : 0 = vidéo, puis une entrée par voix, puis le SFX composite si
+    `avec_sfx`, puis la musique si `chaine_musique` (filtres à lui appliquer).
+    Chaque étiquette produite est consommée une seule fois : une sortie non
+    branchée fait rejeter tout le graphe par ffmpeg.
+    """
+    parts = []
+    idx = 1
+    voix = []
+    for i, delai in enumerate(delais_voix_ms):
+        parts.append(f"[{idx}:a]adelay={delai}|{delai}[v{i}];")
+        voix.append(f"[v{i}]")
+        idx += 1
+    if voix:
+        parts.append(f"{''.join(voix)}amix=inputs={len(voix)}:normalize=0[voice_full];")
+    else:
+        parts.append("aevalsrc=0:d=10[voice_full];")
+
+    if avec_sfx:
+        parts.append(f"[{idx}:a]volume=1.0[sfx_full];")
+        idx += 1
+    else:
+        parts.append("aevalsrc=0:d=10[sfx_full];")
+
+    if chaine_musique is not None:
+        # La voix est dédoublée : une copie pilote le ducking, l'autre part au mix.
+        parts.append("[voice_full]asplit=2[voice_sc][voice_mix];")
+        parts.append(f"[{idx}:a]{chaine_musique}[music_raw];")
+        parts.append(
+            "[music_raw][voice_sc]sidechaincompress="
+            "threshold=0.15:ratio=4.5:attack=15:release=350[music_ducked];"
+        )
+        a_mixer, n = "[voice_mix][sfx_full][music_ducked]", 3
+    else:
+        a_mixer, n = "[voice_full][sfx_full]", 2
+    parts.append(
+        f"{a_mixer}amix=inputs={n}:normalize=0,"
+        f"loudnorm=I={TARGET_LUFS:.1f}:TP=-1.0:LRA=11[audio_master]"
+    )
+    return "".join(parts)
+
+
 def mix_audio_post_render(
     projet_dir,
     rendered_mp4_path,
@@ -225,6 +279,7 @@ def mix_audio_post_render(
     scenes_data,
     total_duration,
     dramatic_events=None,
+    musique_path=None,
 ):
     """
     Mélange de manière professionnelle la voix, les SFX et la musique d'ambiance avec FFmpeg.
@@ -260,91 +315,40 @@ def mix_audio_post_render(
     print("\n🎚️  Mixage audio post-rendu avec compression sidechain...")
 
     inputs = []
-    filter_parts = []
-    input_idx = 1
 
-    # 1. Liste des voix et leurs timings
-    voix_inputs = []
+    # 1. Voix et leurs timings
+    delais_voix_ms = []
     for i, scene in enumerate(scenes_data):
         audio_src = Path(projet_dir) / "audio" / f"scene_{i + 1}.wav"
         if audio_src.exists():
             inputs.extend(["-i", str(audio_src)])
-            delay_ms = int(round(scene["voice_start"] * 1000))
-            filter_parts.append(f"[{input_idx}:a]adelay={delay_ms}|{delay_ms}[v{i}];")
-            voix_inputs.append(f"[v{i}]")
-            input_idx += 1
+            delais_voix_ms.append(int(round(scene["voice_start"] * 1000)))
 
-    n_voices = len(voix_inputs)
-    if n_voices > 0:
-        # Construire la voix complète et la splitter en 2 (sidechain + mix final)
-        filter_parts.append(
-            f"{''.join(voix_inputs)}amix=inputs={n_voices}:normalize=0[voice_full];"
-        )
-        filter_parts.append("[voice_full]asplit=2[voice_sc][voice_mix];")
-    else:
-        filter_parts.append("aevalsrc=0:d=10[voice_sc];")
-        filter_parts.append("aevalsrc=0:d=10[voice_mix];")
-
-    # 2. SFX Composite unique
+    # 2. SFX composite unique
     sfx_composite = Path(projet_dir) / "audio" / "sfx_composite.wav"
-    if sfx_composite.exists():
+    avec_sfx = sfx_composite.exists()
+    if avec_sfx:
         inputs.extend(["-i", str(sfx_composite)])
-        filter_parts.append(f"[{input_idx}:a]volume=1.0[sfx_full];")
-        input_idx += 1
-    else:
-        filter_parts.append("aevalsrc=0:d=10[sfx_full];")
 
-    # 3. Ajouter la musique d'ambiance
-    projet_name = Path(projet_dir).name
-    musique_path = None
-    candidats_dirs = [Path(projet_dir), Path(projet_dir).parent.parent / "musiques"]
-    for d in candidats_dirs:
-        for ext in [".mp3", ".wav"]:
-            candidat = d / f"{projet_name}_ambient{ext}"
-            if candidat.exists():
-                musique_path = candidat
-                break
-        if musique_path:
-            break
-
-    if not musique_path:
-        mus_dir = Path(projet_dir).parent.parent / "musiques"
-        if mus_dir.exists():
-            candidats = list(mus_dir.glob("*.mp3")) + list(mus_dir.glob("*.wav"))
-            if candidats:
-                musique_path = candidats[0]
-
+    # 3. Musique d'ambiance (celle générée pour ce rendu, sinon recherche)
+    if musique_path is None:
+        musique_path = _trouver_musique(projet_dir)
+    chaine_musique = None
     if musique_path:
         inputs.extend(["-i", str(musique_path)])
-        music_idx = input_idx
-        input_idx += 1
-        music_chain = (
-            f"[{music_idx}:a]aloop=loop=-1:size=2e9,volume={POST_MIX_MUSIC_VOLUME:.3f}"
-        )
+        chaine_musique = f"aloop=loop=-1:size=2e9,volume={POST_MIX_MUSIC_VOLUME:.3f}"
         if USE_DRAMATIC_SILENCE:
             for event in dramatic_events or []:
                 t = float(event["time"])
                 start = max(0.0, t - 0.85)
                 end = t + 0.55
-                music_chain += f",volume=0:enable='between(t,{start:.3f},{end:.3f})'"
-        filter_parts.append(music_chain + "[music_raw];")
-        # voice_sc = copie dédiée au sidechain (ne sera pas réutilisée)
-        filter_parts.append(
-            "[music_raw][voice_sc]sidechaincompress=threshold=0.15:ratio=4.5:attack=15:release=350[music_ducked];"
-        )
+                chaine_musique += f",volume=0:enable='between(t,{start:.3f},{end:.3f})'"
         print(
             f"   🎼 Musique post-mix : volume={POST_MIX_MUSIC_VOLUME:.2f}, "
             "ducking voix actif"
         )
     else:
-        filter_parts.append("aevalsrc=0:d=10[music_ducked];")
-
-    # 4. Mixer le tout : voice_mix (copie voix pour mix) + sfx + musique duckée
-    filter_parts.append(
-        f"[voice_mix][sfx_full][music_ducked]"
-        f"amix=inputs=3:normalize=0,"
-        f"loudnorm=I={TARGET_LUFS:.1f}:TP=-1.0:LRA=11[audio_master]"
-    )
+        print("   ℹ️  Pas de musique d'ambiance : voix + SFX seulement")
 
     cmd = [
         "ffmpeg",
@@ -356,7 +360,7 @@ def mix_audio_post_render(
     cmd.extend(
         [
             "-filter_complex",
-            "".join(filter_parts),
+            construire_filtre_mix(delais_voix_ms, avec_sfx, chaine_musique),
             "-map",
             "0:v",
             "-map",
@@ -374,9 +378,9 @@ def mix_audio_post_render(
 
     print(f"   🏃 Commande FFmpeg : {' '.join(cmd)}")
     r = subprocess.run(cmd, capture_output=True, text=True)
-    if r.returncode == 0:
-        print("   ✅ Audio mixé avec succès (sidechain compress appliqué)")
-        normalize_loudness_master(final_mp4_path)
-    else:
-        print(f"   ⚠️ FFmpeg mixage erreur : {r.stderr}")
-        shutil.copy(rendered_mp4_path, final_mp4_path)
+    if r.returncode != 0:
+        # Pas de repli sur le rendu HyperFrames : sa piste voix est à volume 0,
+        # la vidéo sortirait sans narration.
+        raise RuntimeError(f"Mixage audio FFmpeg échoué :\n{r.stderr[-1500:]}")
+    print("   ✅ Audio mixé avec succès (sidechain compress appliqué)")
+    normalize_loudness_master(final_mp4_path)

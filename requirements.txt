@@ -7,4 +7,3 @@ pydantic
 python-dotenv
 requests
 soundfile
-yt-dlp

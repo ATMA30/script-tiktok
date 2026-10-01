@@ -69,8 +69,6 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           USE_SEMANTIC_OVERLAYS: "0"
           USE_DIRECTOR_AGENT: "0"
-          USE_GENERATIVE_OVERLAYS: "0"
-          USE_AI_OVERLAY_DETECTION: "0"
         run: |
           if [ -n "${{ inputs.projet }}" ]; then
             python 3_render_hyperframes.py --projet "projets/${{ inputs.projet }}"

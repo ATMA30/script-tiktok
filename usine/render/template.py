@@ -1,0 +1,1613 @@
+"""Document HTML HyperFrames complet (styles, runtime GSAP, scènes)."""
+
+import re
+from usine.render.lottie import lottie_head_html
+from usine.render.cards import (
+    _dust_motes_html,
+    _dust_motes_js,
+    _persistent_case_tag_html,
+    build_flash_transitions,
+)
+from usine.render.config import (
+    HEIGHT,
+    SCROLL_HOOK_TEXT,
+    USE_BRAND_LOGO,
+    USE_BREATHING_VIGNETTE,
+    USE_FILM_GRAIN,
+    USE_LETTERBOX,
+    USE_LOTTIE_OVERLAYS,
+    USE_SCROLL_HOOK,
+    WIDTH,
+)
+from usine.render.text import html_escape
+
+
+def build_html(projet_name, scenes_meta, total_duration):
+    body_blocks = []
+    js_blocks = []
+    for sm in scenes_meta:
+        body_blocks.extend(sm["html"])
+        js_blocks.extend(sm["js"])
+
+    # Flash transitions
+    flash_html, flash_js = build_flash_transitions(scenes_meta)
+    body_blocks.extend(flash_html)
+    js_blocks.extend(flash_js)
+
+    body_html = "\n      ".join(body_blocks)
+    js_code = "\n      ".join(js_blocks)
+    image_preload_hrefs = sorted(set(re.findall(r'<img[^>]+src="([^"]+)"', body_html)))
+    image_preload_links = "\n    ".join(
+        f'<link rel="preload" as="image" href="{href}" fetchpriority="high">'
+        for href in image_preload_hrefs
+    )
+
+    # Lottie runtime <script type="module" src=...> — empty when Lottie is
+    # disabled or the manifest has no assets, so the runtime isn't loaded.
+    lottie_script_tag = lottie_head_html() if USE_LOTTIE_OVERLAYS else ""
+
+    # Couches cinéma globales (opt-in via flags ENV)
+    film_grain_html = (
+        (
+            f'<div id="film-grain" class="film-grain clip" data-start="0" '
+            f'data-duration="{total_duration:.3f}" data-track-index="495"></div>'
+        )
+        if USE_FILM_GRAIN
+        else ""
+    )
+    letterbox_html = (
+        (
+            f'<div id="letterbox" class="letterbox clip" data-start="0" '
+            f'data-duration="{total_duration:.3f}" data-track-index="496"></div>'
+        )
+        if USE_LETTERBOX
+        else ""
+    )
+    persistent_tag_html = _persistent_case_tag_html(projet_name)
+    if persistent_tag_html:
+        persistent_tag_html = (
+            f'<div class="persistent-case-tag-wrap clip" data-start="0" '
+            f'data-duration="{total_duration:.3f}" data-track-index="497" '
+            f'style="position:absolute;inset:0;pointer-events:none;">'
+            f"{persistent_tag_html}"
+            f"</div>"
+        )
+    brand_logo_html = ""
+    if USE_BRAND_LOGO:
+        brand_logo_html = (
+            f'<div id="brand-logo-wrap" class="brand-logo-wrap clip" '
+            f'data-start="0" data-duration="{total_duration:.3f}" '
+            f'data-track-index="498">'
+            f'<img src="assets/yurei_logo.png" alt="" />'
+            f"</div>"
+        )
+    scroll_hook_html = ""
+    if USE_SCROLL_HOOK:
+        scroll_hook_html = (
+            f'<div id="scroll-hook" class="scroll-hook clip" '
+            f'data-start="0" data-duration="3.300" data-track-index="499">'
+            f"{html_escape(SCROLL_HOOK_TEXT)}"
+            f"</div>"
+        )
+
+    # Vignette pulse (respiration)
+    vignette_pulse_js = ""
+    if USE_BREATHING_VIGNETTE:
+        # Cycle de 8s : opacity 0.85 ↔ 1.05 + scale 1.00 ↔ 1.04
+        n_cycles = max(1, int(total_duration / 8.0))
+        vignette_pulse_js = (
+            f'tl.fromTo("#vignette", '
+            f"{{opacity: 0.85}}, "
+            f'{{opacity: 1.05, duration: 8, ease: "sine.inOut", '
+            f"yoyo: true, repeat: {n_cycles * 2}}}, 0);"
+        )
+
+    return f"""<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width={WIDTH}, height={HEIGHT}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Inter:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Crimson+Pro:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    {image_preload_links}
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    {lottie_script_tag}
+    <style>
+      /* ── Design system : éditorial / docu épuré ─────────────── */
+      :root {{
+        --bg:        #08090f;
+        --bg-deep:   #04050a;
+        --surface:   rgba(255, 255, 255, 0.04);
+        --border:    rgba(200, 220, 255, 0.10);
+        --border-on: rgba(255, 56, 56, 0.50);
+        --text:      #f0eee8;
+        --muted:     #8899bb;
+        --muted-2:   #445566;
+        --accent:    #ff3838;
+        --accent-d:  rgba(255, 56, 56, 0.55);
+
+        --font-display: "Anton", "Inter", -apple-system, sans-serif;
+        --font-display2: "Bebas Neue", "Inter", sans-serif;
+        --font-sans: "Inter", -apple-system, "Helvetica Neue", Arial, sans-serif;
+        --font-mono: "JetBrains Mono", "Courier New", monospace;
+        --font-serif: "Crimson Pro", "Times New Roman", Georgia, serif;
+      }}
+      * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+      html, body {{
+        margin: 0; width: {WIDTH}px; height: {HEIGHT}px;
+        overflow: hidden; background: var(--bg-deep);
+        color: var(--text);
+        font-family: var(--font-sans);
+        font-feature-settings: "ss01", "cv11";
+        -webkit-font-smoothing: antialiased;
+      }}
+      #root {{
+        position: relative; width: 100%; height: 100%;
+        perspective: 1500px;
+        background: var(--bg-deep);
+      }}
+
+      /* ── Images ─────────────────────────────────────────────── */
+      .bg {{
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        object-fit: cover; z-index: 1; opacity: 0;
+        will-change: transform, opacity;
+        transform-style: preserve-3d;
+        transform-origin: 50% 50%;
+        backface-visibility: hidden;
+      }}
+      .motion-atmosphere {{
+        position: absolute;
+        inset: -8%;
+        pointer-events: none;
+        background:
+          radial-gradient(ellipse 55% 25% at 20% 38%, rgba(205,220,228,0.30), transparent 72%),
+          radial-gradient(ellipse 65% 24% at 78% 66%, rgba(112,132,145,0.24), transparent 74%),
+          linear-gradient(112deg, transparent 30%, rgba(255,255,255,0.055) 49%, transparent 66%);
+        filter: blur(28px);
+        mix-blend-mode: screen;
+        will-change: transform, opacity;
+      }}
+      .brand-logo-wrap {{
+        position: absolute;
+        top: 48px;
+        right: 42px;
+        width: 156px;
+        height: 156px;
+        z-index: 92;
+        opacity: 0.54;
+        pointer-events: none;
+        filter: drop-shadow(0 4px 14px rgba(0,0,0,0.85));
+      }}
+      .brand-logo-wrap img {{
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }}
+      .scroll-hook {{
+        position: absolute;
+        top: 112px;
+        left: 72px;
+        right: 220px;
+        z-index: 91;
+        color: #fff;
+        font-family: "Oswald", var(--font-display2);
+        font-size: 45px;
+        font-weight: 800;
+        line-height: 1.06;
+        letter-spacing: 0;
+        text-transform: uppercase;
+        text-align: left;
+        text-shadow:
+          0 3px 16px rgba(0,0,0,1),
+          0 0 8px rgba(0,0,0,0.96);
+        -webkit-text-stroke: 1px rgba(0,0,0,0.72);
+      }}
+
+      /* ── Backgrounds procéduraux (image-free) ───────────────── */
+      .pbg {{
+        position: absolute; inset: 0; opacity: 0;
+        will-change: opacity;
+      }}
+      .pbg-minimal {{ background: var(--bg-deep); }}
+      .pbg-dotgrid {{
+        background-color: var(--bg-deep);
+        background-image: radial-gradient(rgba(255,255,255,0.06) 1.5px, transparent 1.5px);
+        background-size: 40px 40px;
+      }}
+      .pbg-mesh {{
+        background:
+          radial-gradient(ellipse 70% 50% at 20% 25%, rgba(255,56,56,0.10) 0%, transparent 60%),
+          radial-gradient(ellipse 60% 40% at 80% 75%, rgba(70,80,120,0.18) 0%, transparent 55%),
+          radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.6) 100%),
+          var(--bg-deep);
+        background-size: 200% 200%;
+      }}
+      .pbg-lines {{
+        background-color: var(--bg-deep);
+        background-image: repeating-linear-gradient(
+          0deg, transparent 0px, transparent 39px,
+          rgba(255,255,255,0.04) 39px, rgba(255,255,255,0.04) 40px
+        );
+      }}
+      .pbg-topo {{
+        background: var(--bg-deep);
+        background-image:
+          radial-gradient(circle at 30% 40%, rgba(255,56,56,0.07) 0%, transparent 28%),
+          radial-gradient(circle at 70% 60%, rgba(255,255,255,0.05) 0%, transparent 35%),
+          repeating-radial-gradient(circle at 50% 50%,
+            transparent 0px, transparent 38px,
+            rgba(255,255,255,0.025) 38px, rgba(255,255,255,0.025) 39px);
+      }}
+      .pbg-scanline {{
+        background: var(--bg-deep);
+        overflow: hidden;
+      }}
+      .pbg-scan {{
+        position: absolute; left: 0; right: 0;
+        height: 280px;
+        background: linear-gradient(180deg,
+          transparent 0%,
+          rgba(255,255,255,0.045) 40%,
+          rgba(255,56,56,0.08) 50%,
+          rgba(255,255,255,0.045) 60%,
+          transparent 100%);
+        filter: blur(2px);
+      }}
+
+      /* Vignette subtile globale (douce, pas oppressive) */
+      .vignette {{
+        position: absolute; inset: 0; z-index: 5; pointer-events: none;
+        background: radial-gradient(ellipse 100% 100% at center,
+          transparent 34%, rgba(0,0,0,0.82) 100%);
+        will-change: opacity, transform;
+      }}
+
+      /* ── Film grain animé (look 35mm) ───────────────────────── */
+      .film-grain {{
+        position: absolute; inset: -2%; z-index: 6;
+        pointer-events: none;
+        background-image:
+          radial-gradient(circle at 17% 23%, rgba(255,255,255,0.08) 0.5px, transparent 1.5px),
+          radial-gradient(circle at 71% 47%, rgba(255,255,255,0.06) 0.5px, transparent 1.5px),
+          radial-gradient(circle at 43% 81%, rgba(255,255,255,0.07) 0.5px, transparent 1.5px),
+          radial-gradient(circle at 88% 12%, rgba(255,255,255,0.05) 0.5px, transparent 1.5px),
+          radial-gradient(circle at 6% 64%, rgba(255,255,255,0.06) 0.5px, transparent 1.5px);
+        background-size: 180px 180px, 220px 220px, 150px 150px, 200px 200px, 170px 170px;
+        background-blend-mode: screen;
+        mix-blend-mode: overlay;
+        opacity: 0.18;
+        animation: film-grain-shift 0.16s steps(3) infinite;
+      }}
+      @keyframes film-grain-shift {{
+        0%   {{ background-position:   0px   0px,   0px   0px,   0px   0px,   0px   0px,   0px   0px; }}
+        33%  {{ background-position: -30px  17px,  22px -19px, -15px  31px,  28px -11px, -18px  24px; }}
+        66%  {{ background-position:  19px -28px, -33px  14px,  26px -22px, -14px  29px,  21px -16px; }}
+        100% {{ background-position:   0px   0px,   0px   0px,   0px   0px,   0px   0px,   0px   0px; }}
+      }}
+
+      /* ── Letterbox cinéma (barres haut/bas légères) ─────────── */
+      .letterbox {{
+        position: absolute; inset: 0; z-index: 7;
+        pointer-events: none;
+      }}
+      .letterbox::before, .letterbox::after {{
+        content: ""; position: absolute; left: 0; right: 0;
+        height: 70px;
+        background: linear-gradient(180deg, rgba(0,0,0,0.92) 60%, transparent 100%);
+      }}
+      .letterbox::before {{ top: 0; }}
+      .letterbox::after {{
+        bottom: 0;
+        background: linear-gradient(0deg, rgba(0,0,0,0.92) 60%, transparent 100%);
+      }}
+
+      /* ── Tag CASE permanent en coin haut-droite ─────────────── */
+      .persistent-case-tag {{
+        position: absolute; top: 36px; right: 36px; z-index: 35;
+        pointer-events: none;
+        font-family: var(--font-mono);
+        font-size: 14px; letter-spacing: 2px;
+        color: rgba(255,255,255,0.72);
+        text-transform: uppercase;
+        padding: 6px 10px;
+        border: 1px solid rgba(255,56,56,0.55);
+        background: rgba(0,0,0,0.45);
+        backdrop-filter: blur(3px);
+        opacity: 0.85;
+      }}
+      .persistent-case-tag .dot {{
+        display: inline-block;
+        width: 7px; height: 7px;
+        background: var(--accent);
+        border-radius: 50%;
+        margin-right: 7px; vertical-align: middle;
+        box-shadow: 0 0 8px rgba(255,56,56,0.9);
+        animation: case-blink 1.4s steps(1, end) infinite;
+      }}
+      @keyframes case-blink {{
+        0%, 65% {{ opacity: 1; }}
+        66%, 100% {{ opacity: 0.15; }}
+      }}
+      .persistent-case-tag .sep {{
+        color: rgba(255,56,56,0.7);
+        margin: 0 6px;
+      }}
+
+      /* ── Chromatic aberration sur emph (statique, look glitch permanent) ── */
+      .subtitle .emph.chromatic {{
+        text-shadow:
+          /* Glow & lisibilité (gardé) */
+          0 0 8px rgba(0,0,0,1),
+          0 0 16px rgba(0,0,0,0.95),
+          0 4px 20px rgba(0,0,0,0.95),
+          0 0 24px rgba(255,56,56,0.55),
+          0 0 48px rgba(255,56,56,0.35),
+          /* Chromatic split RGB */
+          -3px 0 0 rgba(255, 30, 30, 0.85),
+          3px 0 0 rgba(0, 200, 255, 0.55),
+          -2px 1px 0 rgba(255, 60, 60, 0.45),
+          2px -1px 0 rgba(0, 220, 255, 0.40);
+      }}
+
+      /* ── Fog : pseudo-shader CSS atmosphérique ──────────────── */
+      .fog {{
+        position: absolute; inset: -10%; z-index: 4;
+        pointer-events: none;
+        background:
+          radial-gradient(ellipse 60% 40% at 25% 30%,
+            rgba(255, 56, 56, 0.10) 0%, transparent 55%),
+          radial-gradient(ellipse 50% 60% at 70% 60%,
+            rgba(100, 110, 140, 0.18) 0%, transparent 60%),
+          radial-gradient(ellipse 70% 50% at 50% 90%,
+            rgba(80, 80, 100, 0.12) 0%, transparent 65%);
+        filter: blur(40px);
+        opacity: 0.38;
+        will-change: transform, opacity;
+        mix-blend-mode: screen;
+      }}
+
+      /* Flash blanc transitions (très subtil) */
+      .flash {{
+        position: absolute; inset: 0; z-index: 800; pointer-events: none;
+        background: #fff; opacity: 0;
+      }}
+
+      /* ── WHIP BLUR cinéma : voile flou qui traverse l'écran ─────
+         backdrop-filter rend flou le contenu derrière. Combiné avec
+         translateX, ça donne l'effet "panoramique flou" qui masque le cut
+         entre 2 images. Très utilisé en montage pro (Premiere/DaVinci). */
+      .trans-whip {{
+        position: absolute;
+        top: 0; bottom: 0; left: 0;
+        width: 100vw;
+        z-index: 800;
+        pointer-events: none;
+        opacity: 0;
+        backdrop-filter: blur(22px) brightness(0.92);
+        -webkit-backdrop-filter: blur(22px) brightness(0.92);
+        background: linear-gradient(90deg,
+          rgba(255,255,255,0.02) 0%,
+          rgba(255,255,255,0.18) 35%,
+          rgba(255,255,255,0.28) 50%,
+          rgba(255,255,255,0.18) 65%,
+          rgba(255,255,255,0.02) 100%);
+        will-change: transform, opacity;
+      }}
+
+      /* Scanning Laser Line */
+
+      /* Glitch Layer */
+      .glitch-layer {{
+        position: absolute; inset: 0; z-index: 70; pointer-events: none;
+        background: rgba(255, 56, 56, 0.15);
+        backdrop-filter: invert(1) hue-rotate(90deg);
+        -webkit-backdrop-filter: invert(1) hue-rotate(90deg);
+        mix-blend-mode: exclusion;
+        opacity: 0;
+      }}
+
+      /* ── HOOK INTRO (scène 1) : punch d'ouverture TikTok ──── */
+      .hook-intro {{
+        position: absolute; inset: 0; z-index: 90;
+        pointer-events: none; opacity: 0;
+      }}
+      .hook-title {{
+        position: absolute; top: 340px; left: 50%;
+        transform: translateX(-50%);
+        z-index: 92;
+        font-family: var(--font-display);
+        font-size: 132px; font-weight: 900; line-height: 0.94;
+        letter-spacing: -2px;
+        color: #fff;
+        text-align: center;
+        text-transform: uppercase;
+        text-shadow:
+          0 0 12px rgba(0,0,0,1),
+          0 0 28px rgba(0,0,0,0.95),
+          0 6px 30px rgba(0,0,0,0.95),
+          0 0 60px rgba(255,56,56,0.45);
+        -webkit-text-stroke: 2px rgba(0,0,0,0.85);
+        paint-order: stroke fill;
+        opacity: 0;
+      }}
+      .hook-title .accent {{ color: var(--accent); }}
+
+      /* ── OUTRO CTA (dernière scène) : "Quelle théorie ?" ──── */
+      .outro-cta {{
+        position: absolute; left: 0; right: 0;
+        bottom: 540px;
+        z-index: 88;
+        text-align: center; opacity: 0;
+        pointer-events: none;
+      }}
+      .outro-cta-kicker {{
+        font-family: var(--font-display2);
+        font-size: 30px; letter-spacing: 8px;
+        color: var(--accent);
+        text-transform: uppercase;
+        margin-bottom: 18px;
+        text-shadow: 0 0 20px rgba(255,56,56,0.7);
+      }}
+      .outro-cta-title {{
+        font-family: var(--font-display);
+        font-size: 112px; font-weight: 900; line-height: 0.94;
+        color: #fff;
+        text-transform: uppercase;
+        text-shadow:
+          0 0 12px rgba(0,0,0,1),
+          0 4px 24px rgba(0,0,0,0.95),
+          0 0 50px rgba(255,56,56,0.4);
+        -webkit-text-stroke: 2px rgba(0,0,0,0.85);
+        paint-order: stroke fill;
+      }}
+      .outro-cta-sub {{
+        font-family: var(--font-display2);
+        font-size: 38px; letter-spacing: 6px;
+        color: rgba(255,255,255,0.92);
+        text-transform: uppercase;
+        margin-top: 28px;
+        text-shadow: 0 4px 18px rgba(0,0,0,0.95);
+      }}
+      .outro-cta-sub .accent {{ color: var(--accent); }}
+
+      /* ── Director layer: premium deterministic motion ─────── */
+      .dir-layer {{
+        position: absolute; inset: 0; z-index: 18;
+        pointer-events: none; opacity: 0;
+        mix-blend-mode: normal;
+      }}
+      .dir-layer::before {{
+        content: "";
+        position: absolute; inset: 0;
+        background:
+          linear-gradient(90deg, rgba(0,0,0,0.34), transparent 18%, transparent 82%, rgba(0,0,0,0.34)),
+          linear-gradient(180deg, rgba(0,0,0,0.20), transparent 26%, transparent 76%, rgba(0,0,0,0.42));
+      }}
+      .dir-corner {{
+        position: absolute; width: 92px; height: 92px;
+        border-color: rgba(255,255,255,0.46);
+        opacity: 0.78;
+      }}
+      .dir-corner.tl {{ top: 78px; left: 48px; border-top: 2px solid; border-left: 2px solid; }}
+      .dir-corner.tr {{ top: 78px; right: 48px; border-top: 2px solid; border-right: 2px solid; }}
+      .dir-corner.bl {{ bottom: 78px; left: 48px; border-bottom: 2px solid; border-left: 2px solid; }}
+      .dir-corner.br {{ bottom: 78px; right: 48px; border-bottom: 2px solid; border-right: 2px solid; }}
+      .dir-scan {{
+        position: absolute; left: 0; right: 0; top: 0;
+        height: 220px; opacity: 0;
+        background: linear-gradient(180deg,
+          transparent 0%,
+          rgba(255,255,255,0.02) 30%,
+          rgba(255,56,56,0.16) 51%,
+          rgba(255,255,255,0.035) 62%,
+          transparent 100%);
+        filter: blur(1.6px);
+      }}
+      .dir-pulse {{
+        position: absolute; left: 50%; top: 44%;
+        width: 520px; height: 520px;
+        margin-left: -260px; margin-top: -260px;
+        border: 2px solid rgba(255,56,56,0.72);
+        border-radius: 50%;
+        box-shadow: 0 0 40px rgba(255,56,56,0.22), inset 0 0 40px rgba(255,56,56,0.10);
+        opacity: 0;
+      }}
+      .dir-meta {{
+        position: absolute; top: 110px;
+        display: flex; align-items: center; gap: 14px;
+        padding: 11px 14px 10px;
+        border: 1px solid rgba(255,255,255,0.18);
+        background: rgba(5,5,5,0.36);
+        backdrop-filter: blur(4px);
+        font-family: var(--font-mono);
+        letter-spacing: 2.3px;
+        text-transform: uppercase;
+      }}
+      .dir-meta.left {{ left: 58px; }}
+      .dir-meta.right {{ right: 58px; }}
+      .dir-meta span {{
+        color: rgba(255,255,255,0.70);
+        font-size: 14px; font-weight: 700;
+      }}
+      .dir-meta strong {{
+        color: var(--accent);
+        font-size: 14px; font-weight: 900;
+      }}
+      .dir-rule {{
+        position: absolute; left: 210px; right: 210px; top: 171px;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255,56,56,0.86), transparent);
+        opacity: 0.9;
+      }}
+
+      /* ── Subtitle : type comme héros, centré, pas de fond ──── */
+      .subtitle {{
+        position: absolute; left: 60px; right: 60px;
+        bottom: 350px;
+        z-index: 20; opacity: 0;
+        color: #ffffff;
+        font-family: "Oswald", var(--font-display2);
+        font-size: 64px; font-weight: 800; line-height: 1.06;
+        text-align: center; letter-spacing: 0;
+        will-change: opacity, transform;
+        /* Stack de text-shadows = lisibilité sur toutes images sans rectangle */
+        text-shadow:
+          0 0 8px rgba(0,0,0,1),
+          0 0 16px rgba(0,0,0,0.95),
+          0 4px 20px rgba(0,0,0,0.95),
+          0 -2px 8px rgba(0,0,0,0.7),
+          2px 2px 4px rgba(0,0,0,0.95),
+          -2px -2px 4px rgba(0,0,0,0.95),
+          2px -2px 4px rgba(0,0,0,0.95),
+          -2px 2px 4px rgba(0,0,0,0.95);
+        -webkit-text-stroke: 1px rgba(0,0,0,0.82);
+        paint-order: stroke fill;
+      }}
+      .subtitle .emph {{
+        color: var(--accent);
+        -webkit-text-stroke: 1.4px rgba(0,0,0,0.95);
+        paint-order: stroke fill;
+        text-shadow:
+          0 0 8px rgba(0,0,0,1),
+          0 0 16px rgba(0,0,0,0.95),
+          0 4px 20px rgba(0,0,0,0.95),
+          0 0 18px rgba(255,56,56,0.42),
+          0 0 34px rgba(255,56,56,0.24);
+        filter: drop-shadow(0 0 4px rgba(255,56,56,0.32));
+      }}
+      .subtitle .word {{
+        display: inline-block;
+        will-change: opacity, transform;
+      }}
+      .subtitle .emph .word {{
+        transform-origin: 50% 60%;
+      }}
+      /* Variant citation : Crimson Pro italic */
+      .subtitle.quote {{
+        font-family: var(--font-serif);
+        font-style: italic;
+        font-weight: 700;
+        font-size: 62px;
+        letter-spacing: 0;
+      }}
+      .subtitle.quote::before {{
+        content: "“";
+        position: absolute; top: -50px; left: 30%;
+        font-size: 140px; font-weight: 900;
+        color: var(--accent); opacity: 0.4;
+        font-family: var(--font-serif);
+        line-height: 1;
+      }}
+
+      /* ── Particles dust (CSS-only, deterministic via GSAP) ──── */
+      .dust {{
+        position: absolute; inset: 0; z-index: 3;
+        pointer-events: none; overflow: hidden;
+      }}
+      .dust-mote {{
+        position: absolute;
+        width: 3px; height: 3px;
+        background: rgba(255,255,255,0.5);
+        border-radius: 50%;
+        opacity: 0;
+        will-change: transform, opacity;
+      }}
+      .dust-mote.glow {{
+        width: 4px; height: 4px;
+        background: rgba(255, 56, 56, 0.6);
+        box-shadow: 0 0 8px rgba(255, 56, 56, 0.5);
+      }}
+
+      /* ── Semantic animation pack v2 : 40 familles déterministes ─ */
+      .sem-overlay {{
+        position: absolute; inset: 0;
+        z-index: 24; opacity: 0;
+        pointer-events: none;
+        color: var(--text);
+        font-family: var(--font-sans);
+      }}
+      .sem-kicker {{
+        font-family: var(--font-display2);
+        color: var(--accent);
+        letter-spacing: 7px;
+        font-size: 20px;
+        text-transform: uppercase;
+        font-weight: 400;
+      }}
+
+      .truth-card {{
+        position: absolute; inset: 0;
+        z-index: 80; opacity: 0;
+        pointer-events: none;
+        padding: 0 76px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        background: #000;
+      }}
+      .truth-kicker {{
+        font-family: var(--font-mono);
+        color: rgba(255,255,255,0.60);
+        letter-spacing: 5px;
+        font-size: 20px;
+        text-transform: uppercase;
+      }}
+      .truth-title {{
+        margin-top: 20px;
+        font-family: var(--font-display);
+        font-size: 132px;
+        line-height: 0.88;
+        letter-spacing: 0;
+        text-transform: uppercase;
+        text-shadow: 0 0 30px rgba(255,255,255,0.10);
+      }}
+      .truth-title .presque {{
+        color: var(--accent);
+        text-shadow:
+          0 0 22px rgba(255,56,56,0.45),
+          0 0 60px rgba(255,56,56,0.28);
+      }}
+      .truth-sub {{
+        margin-top: 24px;
+        font-family: var(--font-mono);
+        color: var(--accent);
+        font-size: 20px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+      }}
+
+      .sem-map {{
+        z-index: 16;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 50% 45%, rgba(255,56,56,0.16), transparent 22%),
+          radial-gradient(circle at 40% 38%, rgba(255,255,255,0.08), transparent 28%),
+          rgba(2,5,8,0.84);
+      }}
+      .sem-map-grid {{
+        position: absolute; inset: -22%;
+        background-image:
+          linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px),
+          linear-gradient(135deg, rgba(255,56,56,0.10), transparent 36%, rgba(255,255,255,0.08) 58%, transparent 78%);
+        background-size: 64px 64px, 64px 64px, 100% 100%;
+        filter: contrast(1.1);
+      }}
+      .sem-map-grid::before {{
+        content: "";
+        position: absolute; inset: 0;
+        background:
+          repeating-linear-gradient(24deg, transparent 0 86px, rgba(255,255,255,0.055) 87px 89px, transparent 90px 170px),
+          repeating-linear-gradient(111deg, transparent 0 112px, rgba(255,56,56,0.08) 113px 115px, transparent 116px 220px);
+      }}
+      .sem-map-lines {{
+        position: absolute; inset: 0;
+        width: 100%; height: 100%;
+      }}
+      .sem-map-lines path {{
+        fill: none;
+        stroke: rgba(255,56,56,0.78);
+        stroke-width: 4;
+        stroke-linecap: round;
+        filter: drop-shadow(0 0 12px rgba(255,56,56,0.55));
+      }}
+      .sem-map-ring {{
+        fill: none;
+        stroke: rgba(255,56,56,0.72);
+        stroke-width: 3;
+      }}
+      .sem-map-dot {{
+        position: absolute;
+        width: 20px; height: 20px;
+        margin-left: -10px; margin-top: -10px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 0 8px rgba(255,56,56,0.15), 0 0 30px rgba(255,56,56,0.9);
+      }}
+      .sem-map-cross {{
+        position: absolute;
+        width: 128px; height: 128px;
+        margin-left: -64px; margin-top: -64px;
+        border: 1px solid rgba(255,255,255,0.42);
+      }}
+      .sem-map-cross::before, .sem-map-cross::after {{
+        content: "";
+        position: absolute;
+        background: rgba(255,255,255,0.46);
+      }}
+      .sem-map-cross::before {{ left: 50%; top: -30px; bottom: -30px; width: 1px; }}
+      .sem-map-cross::after {{ top: 50%; left: -30px; right: -30px; height: 1px; }}
+      .sem-map-label {{
+        position: absolute; left: 62px; right: 62px; top: 164px;
+        display: flex; flex-direction: column; align-items: flex-start;
+        gap: 8px;
+      }}
+      .sem-map-title {{
+        font-family: var(--font-display);
+        font-size: 118px;
+        line-height: 0.92;
+        letter-spacing: 0;
+        text-transform: uppercase;
+        text-shadow: 0 8px 28px rgba(0,0,0,0.8);
+      }}
+      .sem-map-coords, .sem-map-readout {{
+        font-family: var(--font-mono);
+        color: rgba(255,255,255,0.76);
+        font-size: 18px;
+        letter-spacing: 2.2px;
+        text-transform: uppercase;
+      }}
+      .sem-map-readout {{
+        position: absolute; left: 62px; bottom: 340px;
+        color: rgba(255,56,56,0.82);
+      }}
+      .sem-map-badge {{
+        margin-top: 10px;
+        display: inline-block;
+        padding: 7px 10px;
+        border: 1px solid rgba(255,56,56,0.72);
+        color: var(--accent);
+        font-family: var(--font-mono);
+        font-size: 15px;
+        letter-spacing: 2px;
+        background: rgba(0,0,0,0.34);
+      }}
+      .sem-map-route-copy {{
+        position: absolute; left: 70px; top: 540px;
+        max-width: 740px;
+        display: flex; flex-direction: column; gap: 5px;
+      }}
+      .sem-map-route-copy span {{
+        font-family: var(--font-display2);
+        color: var(--accent);
+        letter-spacing: 6px;
+        font-size: 22px;
+      }}
+      .sem-map-route-copy strong {{
+        font-size: 32px;
+        line-height: 1.08;
+        text-transform: uppercase;
+      }}
+      .sem-map-route-copy em {{
+        font-family: var(--font-mono);
+        color: rgba(255,255,255,0.68);
+        font-style: normal;
+        font-size: 15px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }}
+
+      .sem-message .sem-phone {{
+        position: absolute; right: 72px; top: 360px;
+        width: 440px; min-height: 640px;
+        border: 1px solid rgba(255,255,255,0.20);
+        background: rgba(4,6,8,0.72);
+        box-shadow: 0 24px 80px rgba(0,0,0,0.58);
+        backdrop-filter: blur(8px);
+      }}
+      .sem-phone-bar {{
+        position: absolute; top: 24px; left: 50%;
+        width: 112px; height: 6px;
+        transform: translateX(-50%);
+        background: rgba(255,255,255,0.26);
+      }}
+      .sem-chat {{ padding: 76px 28px 32px; }}
+      .sem-chat-meta {{
+        font-family: var(--font-mono);
+        color: rgba(255,255,255,0.55);
+        font-size: 14px;
+        letter-spacing: 2px;
+        margin-bottom: 26px;
+      }}
+      .sem-bubble {{
+        display: inline-block;
+        max-width: 360px;
+        padding: 18px 20px;
+        background: rgba(255,255,255,0.92);
+        color: #050505;
+        font-size: 24px;
+        line-height: 1.25;
+        font-weight: 800;
+      }}
+      .sem-send-row {{
+        display: flex; align-items: center; gap: 10px;
+        margin-top: 22px;
+        font-family: var(--font-mono);
+        color: var(--accent);
+        letter-spacing: 2px;
+        font-size: 15px;
+      }}
+      .sem-send-row span {{
+        width: 12px; height: 12px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 18px rgba(255,56,56,0.8);
+      }}
+
+      .sem-year {{
+        top: 0;
+        text-align: center;
+        padding-top: 200px;
+      }}
+      .sem-year-num {{
+        font-family: var(--font-display);
+        font-size: 330px;
+        line-height: 0.86;
+        letter-spacing: 0;
+        text-shadow: 0 10px 42px rgba(0,0,0,0.72);
+      }}
+      .sem-year-rule {{
+        width: 520px; height: 2px;
+        margin: 22px auto 0;
+        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+      }}
+
+      .sem-counter {{
+        top: 250px; right: 62px; left: auto;
+        width: 420px;
+        display: flex; flex-direction: column; align-items: flex-end;
+      }}
+      .sem-counter-num {{
+        font-family: var(--font-display);
+        font-size: 142px;
+        line-height: 0.92;
+      }}
+      .sem-meter {{
+        width: 360px; height: 3px;
+        background: rgba(255,255,255,0.18);
+        overflow: hidden;
+      }}
+      .sem-meter div {{
+        width: 100%; height: 100%;
+        background: var(--accent);
+      }}
+
+      .sem-cctv-frame {{
+        position: absolute; left: 72px; right: 72px; top: 300px;
+        height: 520px;
+        border: 1px solid rgba(255,255,255,0.22);
+        background: rgba(0,0,0,0.58);
+        box-shadow: inset 0 0 60px rgba(0,0,0,0.8);
+      }}
+      .sem-cctv-head, .sem-cctv-foot {{
+        position: absolute; left: 24px; right: 24px;
+        display: flex; justify-content: space-between;
+        font-family: var(--font-mono);
+        font-size: 16px;
+        letter-spacing: 2px;
+        color: rgba(255,255,255,0.72);
+      }}
+      .sem-cctv-head {{ top: 20px; }}
+      .sem-cctv-head strong {{ color: var(--accent); }}
+      .sem-cctv-foot {{ bottom: 20px; color: rgba(255,56,56,0.72); }}
+      .sem-cctv-screen {{
+        position: absolute; left: 32px; right: 32px; top: 62px; bottom: 62px;
+        overflow: hidden;
+        background:
+          repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0 2px, transparent 3px 7px),
+          radial-gradient(circle at 45% 44%, rgba(255,255,255,0.10), transparent 34%);
+      }}
+      .sem-cctv-scan {{
+        position: absolute; left: 0; right: 0; top: 0;
+        height: 90px;
+        background: linear-gradient(180deg, transparent, rgba(255,56,56,0.24), transparent);
+      }}
+      .sem-cctv-box {{
+        position: absolute;
+        border: 2px solid rgba(255,56,56,0.95);
+        box-shadow: 0 0 18px rgba(255,56,56,0.36);
+      }}
+      .sem-cctv-box.one {{ left: 160px; top: 118px; width: 210px; height: 150px; }}
+      .sem-cctv-box.two {{ right: 190px; top: 210px; width: 150px; height: 120px; }}
+
+      .sem-file {{
+        top: 290px; left: 66px;
+        width: 430px; height: 330px;
+      }}
+      .sem-file-front, .sem-file-back {{
+        position: absolute;
+        width: 390px; height: 270px;
+        background: rgba(235,232,220,0.92);
+        color: #101010;
+        box-shadow: 0 24px 70px rgba(0,0,0,0.42);
+      }}
+      .sem-file-back {{ left: 36px; top: 42px; opacity: 0.7; }}
+      .sem-file-back.two {{ left: 28px; top: 54px; opacity: 0.55; }}
+      .sem-file-front {{ left: 0; top: 0; padding: 28px; }}
+      .sem-file-tab {{
+        display: inline-block;
+        padding: 7px 12px;
+        background: #101010;
+        color: var(--accent);
+        font-family: var(--font-display2);
+        letter-spacing: 4px;
+        font-size: 20px;
+      }}
+      .sem-file-line {{
+        height: 8px; margin-top: 26px;
+        background: rgba(0,0,0,0.72);
+      }}
+      .sem-file-line.short {{ width: 52%; }}
+      .sem-file-line.mid {{ width: 76%; }}
+      .sem-file-stamp {{
+        margin-top: 30px;
+        border: 2px solid var(--accent);
+        color: var(--accent);
+        display: inline-block;
+        padding: 8px 12px;
+        font-weight: 900;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }}
+
+      .sem-redacted {{
+        left: 62px; right: 62px; top: 290px;
+        height: 330px;
+      }}
+      .sem-redact-bar {{
+        position: absolute; left: 0;
+        height: 28px;
+        background: rgba(255,255,255,0.92);
+        box-shadow: 0 0 24px rgba(0,0,0,0.6);
+      }}
+      .sem-redact-stamp {{
+        position: absolute; right: 0; top: 210px;
+        border: 2px solid var(--accent);
+        color: var(--accent);
+        padding: 10px 16px;
+        font-family: var(--font-display2);
+        font-size: 34px;
+        letter-spacing: 7px;
+        transform: rotate(-8deg);
+      }}
+
+      .sem-radar {{
+        top: 290px; right: 70px;
+        width: 420px; height: 420px;
+      }}
+      .sem-radar-dish {{
+        position: absolute; right: 0; top: 0;
+        width: 260px; height: 260px;
+        border-radius: 50%;
+        border: 1px solid rgba(255,56,56,0.65);
+        background: radial-gradient(circle, rgba(255,56,56,0.12), rgba(0,0,0,0.34) 62%, transparent 63%);
+        overflow: hidden;
+      }}
+      .sem-radar-ring {{
+        position: absolute; border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.22);
+        inset: 28px;
+      }}
+      .sem-radar-ring.r2 {{ inset: 72px; }}
+      .sem-radar-ring.r3 {{ inset: 112px; }}
+      .sem-radar-sweep {{
+        position: absolute; left: 50%; top: 50%;
+        width: 120px; height: 2px;
+        transform-origin: 0 50%;
+        background: linear-gradient(90deg, var(--accent), transparent);
+      }}
+      .sem-radar-blip {{
+        position: absolute; width: 12px; height: 12px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 18px rgba(255,56,56,0.8);
+      }}
+      .sem-radar-blip.b1 {{ left: 168px; top: 84px; }}
+      .sem-radar-blip.b2 {{ left: 82px; top: 178px; }}
+      .sem-radar-copy {{
+        position: absolute; left: 0; top: 286px;
+        width: 390px;
+      }}
+      .sem-radar-copy strong {{
+        display: block;
+        margin-top: 8px;
+        font-size: 28px;
+        letter-spacing: 0.4px;
+      }}
+
+      .sem-search {{
+        left: 72px; right: 72px; top: 320px;
+        height: 520px;
+      }}
+      .sem-search-title {{
+        display: flex; justify-content: space-between; align-items: flex-end;
+        margin-bottom: 18px;
+        font-family: var(--font-mono);
+      }}
+      .sem-search-title span {{ color: var(--accent); letter-spacing: 4px; }}
+      .sem-search-title strong {{ color: rgba(255,255,255,0.72); letter-spacing: 2px; }}
+      .sem-search-grid {{
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }}
+      .sem-search-cell {{
+        height: 116px;
+        border: 1px solid rgba(255,255,255,0.20);
+        background:
+          linear-gradient(135deg, rgba(255,255,255,0.07), transparent),
+          rgba(0,0,0,0.24);
+      }}
+
+      .sem-depth {{
+        left: 74px; top: 290px;
+        width: 410px; height: 560px;
+      }}
+      .sem-depth-copy strong {{
+        display: block;
+        margin-top: 8px;
+        font-size: 28px;
+      }}
+      .sem-depth-shaft {{
+        position: absolute; left: 18px; top: 122px;
+        width: 86px; height: 360px;
+        border-left: 2px solid rgba(255,255,255,0.22);
+        border-right: 2px solid rgba(255,255,255,0.22);
+        background: repeating-linear-gradient(180deg, rgba(255,255,255,0.08) 0 1px, transparent 2px 34px);
+      }}
+      .sem-depth-fill {{
+        width: 100%; height: 100%;
+        background: linear-gradient(180deg, rgba(255,56,56,0.06), rgba(255,56,56,0.35));
+      }}
+      .sem-depth-marker {{
+        position: absolute; left: 106px; top: 288px;
+        min-width: 180px;
+        padding: 8px 12px;
+        border-left: 2px solid var(--accent);
+        background: rgba(0,0,0,0.58);
+        color: var(--accent);
+        font-family: var(--font-mono);
+        letter-spacing: 2px;
+      }}
+
+      .sem-route {{
+        left: 70px; top: 330px;
+        width: 560px; height: 360px;
+      }}
+      .sem-route svg {{
+        width: 520px; height: 260px;
+        overflow: visible;
+      }}
+      .sem-route path {{
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 5;
+        stroke-linecap: round;
+        filter: drop-shadow(0 0 14px rgba(255,56,56,0.55));
+      }}
+      .sem-route circle {{ fill: var(--accent); }}
+      .sem-route-copy strong {{
+        display: block;
+        font-size: 28px;
+        margin-top: 7px;
+        text-transform: uppercase;
+      }}
+      .sem-route-copy span {{
+        display: block;
+        margin-top: 5px;
+        font-family: var(--font-mono);
+        color: rgba(255,255,255,0.68);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }}
+
+      .sem-question {{
+        top: 270px; left: 0; right: 0;
+        text-align: center;
+      }}
+      .sem-question-mark {{
+        font-family: var(--font-display);
+        font-size: 260px;
+        line-height: 0.88;
+        color: var(--accent);
+        text-shadow: 0 0 50px rgba(255,56,56,0.34);
+      }}
+      .sem-question-copy strong {{
+        display: block;
+        margin-top: 10px;
+        font-size: 42px;
+        text-transform: uppercase;
+      }}
+      .sem-question-copy span {{
+        display: block;
+        margin-top: 8px;
+        font-family: var(--font-mono);
+        color: rgba(255,255,255,0.68);
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }}
+
+      .sem-card {{
+        top: 270px; right: 64px;
+        width: 470px;
+        display: flex; gap: 18px;
+        padding: 20px;
+        background: rgba(5,5,5,0.58);
+        border-left: 2px solid var(--accent);
+        border-top: 1px solid rgba(255,255,255,0.16);
+        border-bottom: 1px solid rgba(255,255,255,0.10);
+        backdrop-filter: blur(7px);
+      }}
+      .sem-card-icon {{
+        width: 58px; height: 58px;
+        color: var(--accent);
+        flex: 0 0 auto;
+      }}
+      .sem-card-icon svg {{
+        width: 100%; height: 100%;
+        stroke: currentColor;
+      }}
+      .sem-card-body {{
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }}
+      .sem-card-body strong {{
+        font-size: 27px;
+        line-height: 1.08;
+        text-transform: uppercase;
+        overflow-wrap: anywhere;
+      }}
+      .sem-card-body span {{
+        font-family: var(--font-mono);
+        color: rgba(255,255,255,0.62);
+        font-size: 14px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }}
+      .sem-card-bars {{
+        display: flex; flex-direction: column; gap: 5px;
+        margin-top: 8px;
+      }}
+      .sem-card-bars i {{
+        display: block; height: 3px;
+        background: rgba(255,255,255,0.74);
+      }}
+      .sem-card-bars i:nth-child(1) {{ width: 78%; }}
+      .sem-card-bars i:nth-child(2) {{ width: 56%; }}
+      .sem-card-bars i:nth-child(3) {{ width: 86%; background: var(--accent); }}
+
+      .sem-poster {{
+        left: 70px; top: 250px;
+        width: 360px; height: 500px;
+      }}
+      .sem-poster-sheet {{
+        width: 330px;
+        padding: 20px;
+        background: rgba(238,235,224,0.94);
+        color: #090909;
+        box-shadow: 0 28px 80px rgba(0,0,0,0.50);
+      }}
+      .sem-poster-top {{
+        background: #090909;
+        color: var(--accent);
+        padding: 7px 10px;
+        font-family: var(--font-display2);
+        font-size: 22px;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+      }}
+      .sem-poster-face {{
+        position: relative;
+        height: 170px;
+        margin-top: 18px;
+        background: linear-gradient(135deg, rgba(0,0,0,0.14), rgba(0,0,0,0.42));
+        overflow: hidden;
+      }}
+      .sem-poster-face span {{
+        position: absolute; left: 50%; top: 50%;
+        width: 84px; height: 108px;
+        transform: translate(-50%, -42%);
+        border-radius: 45% 45% 36% 36%;
+        border: 2px solid rgba(0,0,0,0.42);
+      }}
+      .sem-poster-face i {{
+        position: absolute; left: 0; right: 0; top: 0;
+        height: 2px; background: var(--accent);
+        box-shadow: 0 0 18px rgba(255,56,56,0.55);
+      }}
+      .sem-poster-name {{
+        margin-top: 18px;
+        font-size: 24px;
+        font-weight: 900;
+        text-transform: uppercase;
+      }}
+      .sem-poster-lines {{
+        display: flex; flex-direction: column; gap: 7px;
+        margin-top: 16px;
+      }}
+      .sem-poster-lines b {{
+        display: block; height: 5px; background: rgba(0,0,0,0.64);
+      }}
+      .sem-poster-lines b:nth-child(2) {{ width: 72%; }}
+      .sem-poster-lines b:nth-child(3) {{ width: 48%; }}
+
+      .sem-blueprint {{
+        left: 64px; top: 260px;
+        width: 480px; height: 430px;
+      }}
+      .sem-blue-card {{
+        padding: 22px;
+        border: 1px solid rgba(255,255,255,0.18);
+        background: rgba(0,0,0,0.58);
+        backdrop-filter: blur(7px);
+      }}
+      .sem-blue-card svg {{
+        width: 420px; height: 260px;
+        margin-top: 16px;
+      }}
+      .sem-blue-card path {{
+        fill: none;
+        stroke: rgba(255,255,255,0.74);
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }}
+      .sem-blue-card path:nth-child(2) {{
+        stroke: var(--accent);
+        filter: drop-shadow(0 0 12px rgba(255,56,56,0.45));
+      }}
+      .sem-blue-card circle {{ fill: var(--accent); }}
+      .sem-blue-card strong {{
+        display: block;
+        margin-top: 8px;
+        font-size: 25px;
+        text-transform: uppercase;
+      }}
+
+      .sem-signal {{
+        left: 64px; right: 64px; top: 300px;
+        height: 330px;
+      }}
+      .sem-signal-card {{
+        padding: 22px;
+        border-left: 2px solid var(--accent);
+        background: rgba(0,0,0,0.54);
+        backdrop-filter: blur(7px);
+      }}
+      .sem-wave {{
+        height: 138px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 18px;
+      }}
+      .sem-wave i {{
+        width: 10px;
+        background: linear-gradient(180deg, rgba(255,255,255,0.84), var(--accent));
+        box-shadow: 0 0 14px rgba(255,56,56,0.38);
+      }}
+      .sem-signal-card strong {{
+        display: block;
+        font-size: 25px;
+        text-transform: uppercase;
+      }}
+
+      .sem-experiment {{
+        right: 64px; top: 270px;
+        width: 430px; height: 470px;
+      }}
+      .sem-exp-core {{
+        padding: 24px;
+        background: rgba(0,0,0,0.62);
+        border: 1px solid rgba(255,255,255,0.16);
+        backdrop-filter: blur(8px);
+      }}
+      .sem-exp-rings {{
+        position: relative;
+        width: 230px; height: 230px;
+        margin: 20px auto;
+      }}
+      .sem-exp-rings i {{
+        position: absolute; inset: 0;
+        border-radius: 50%;
+        border: 2px solid rgba(255,56,56,0.54);
+      }}
+      .sem-exp-rings i:nth-child(2) {{ inset: 40px; border-color: rgba(255,255,255,0.24); }}
+      .sem-exp-rings i:nth-child(3) {{ inset: 82px; border-color: rgba(255,56,56,0.34); }}
+      .sem-exp-rings b {{
+        position: absolute; left: 50%; top: 28px;
+        width: 3px; height: 88px;
+        background: var(--accent);
+        transform-origin: 50% 100%;
+        box-shadow: 0 0 18px rgba(255,56,56,0.75);
+      }}
+      .sem-exp-core strong {{
+        display: block;
+        font-size: 25px;
+        text-transform: uppercase;
+      }}
+
+      .sem-board {{
+        right: 64px; top: 255px;
+        width: 470px; height: 380px;
+      }}
+      .sem-board-panel {{
+        padding: 22px;
+        background: rgba(0,0,0,0.58);
+        border-top: 1px solid rgba(255,255,255,0.18);
+        border-left: 2px solid var(--accent);
+        backdrop-filter: blur(7px);
+      }}
+      .sem-board-nodes {{
+        position: relative;
+        height: 150px;
+        margin-top: 20px;
+      }}
+      .sem-board-nodes span {{
+        position: absolute;
+        width: 54px; height: 54px;
+        border-radius: 50%;
+        border: 2px solid rgba(255,255,255,0.76);
+        background: rgba(255,255,255,0.08);
+      }}
+      .sem-board-nodes span:nth-child(1) {{ left: 12px; top: 68px; }}
+      .sem-board-nodes span:nth-child(2) {{ left: 170px; top: 16px; border-color: var(--accent); }}
+      .sem-board-nodes span:nth-child(3) {{ right: 22px; top: 88px; }}
+      .sem-board-nodes i {{
+        position: absolute; left: 56px; right: 56px; top: 78px;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(255,255,255,0.56), var(--accent), rgba(255,255,255,0.56));
+      }}
+      .sem-board-panel strong {{
+        display: block;
+        font-size: 25px;
+        text-transform: uppercase;
+      }}
+
+      .sem-satellite {{
+        z-index: 24;
+        /* Plus léger, ne tape pas le centre de l'image */
+        background:
+          radial-gradient(circle at 80% 22%, rgba(255,56,56,0.10), transparent 35%);
+      }}
+      .sem-sat-grid {{
+        /* Grid réduite : seulement coin haut-droite (zone du radar) */
+        position: absolute; top: 110px; right: 30px;
+        width: 380px; height: 380px;
+        background-image:
+          linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+        background-size: 38px 38px;
+        opacity: 0.6;
+      }}
+      .sem-sat-orbit {{
+        /* Radar compact en haut-droite, ne masque plus le centre de l'image */
+        position: absolute; top: 130px; right: 50px;
+        width: 340px; height: 340px;
+      }}
+      .sem-sat-orbit i {{
+        position: absolute; inset: 0;
+        border-radius: 50%;
+        border: 1px solid rgba(255,255,255,0.20);
+      }}
+      .sem-sat-orbit i:nth-child(2) {{ inset: 50px; border-color: rgba(255,56,56,0.46); }}
+      .sem-sat-orbit i:nth-child(3) {{ inset: 100px; border-color: rgba(255,255,255,0.28); }}
+      .sem-sat-orbit b {{
+        position: absolute; left: 50%; top: 50%;
+        width: 160px; height: 2px;
+        transform-origin: 0 50%;
+        background: linear-gradient(90deg, var(--accent), transparent);
+        box-shadow: 0 0 18px rgba(255,56,56,0.85);
+      }}
+      .sem-sat-orbit em {{
+        position: absolute; left: 50%; top: 50%;
+        width: 22px; height: 22px;
+        margin-left: -11px; margin-top: -11px;
+        border-radius: 50%;
+        border: 2px solid var(--accent);
+        box-shadow: 0 0 20px rgba(255,56,56,0.86);
+      }}
+      .sem-sat-copy {{
+        /* Texte en bas-gauche, libère l'image centrale */
+        position: absolute; left: 60px; right: 60px; bottom: 480px;
+      }}
+      .sem-sat-copy strong {{
+        display: block;
+        margin-top: 10px;
+        font-family: var(--font-display);
+        font-size: 72px;
+        line-height: 0.92;
+        text-transform: uppercase;
+      }}
+      .sem-sat-copy span, .sem-sat-copy small {{
+        display: block;
+        margin-top: 12px;
+        font-family: var(--font-mono);
+        color: rgba(255,255,255,0.70);
+        font-size: 17px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+      }}
+      .sem-sat-copy small {{ color: var(--accent); }}
+
+      .sem-security {{
+        left: 64px; right: 64px; top: 260px;
+        height: 620px;
+      }}
+      .sem-security-panel {{
+        width: 520px;
+        padding: 22px;
+        background: rgba(0,0,0,0.64);
+        border: 1px solid rgba(255,255,255,0.16);
+        border-left: 2px solid var(--accent);
+        backdrop-filter: blur(7px);
+      }}
+      .sem-security ul {{
+        list-style: none;
+        margin: 22px 0 18px;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }}
+      .sem-security li {{
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 9px 10px;
+        background: rgba(255,255,255,0.055);
+        font-family: var(--font-mono);
+        font-size: 15px;
+        letter-spacing: 1.5px;
+      }}
+      .sem-security li b {{ color: var(--accent); font-weight: 800; }}
+      .sem-security strong {{
+        display: block;
+        font-size: 27px;
+        text-transform: uppercase;
+      }}
+
+      .sem-timewarp {{
+        z-index: 23;
+        background: radial-gradient(circle at 50% 48%, rgba(255,56,56,0.12), transparent 32%);
+      }}
+      .sem-time-lines {{
+        position: absolute; inset: 160px 120px 420px;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 36px;
+        transform: skewX(-8deg);
+      }}
+      .sem-time-lines i {{
+        display: block;
+        border-left: 2px solid rgba(255,255,255,0.30);
+        background: linear-gradient(180deg, transparent, rgba(255,56,56,0.25), transparent);
+      }}
+      .sem-time-copy {{
+        position: absolute; left: 70px; right: 70px; top: 310px;
+        text-align: center;
+      }}
+      .sem-time-copy strong {{
+        display: block;
+        margin-top: 16px;
+        font-family: var(--font-display);
+        font-size: 150px;
+        line-height: 0.86;
+      }}
+      .sem-time-copy span {{
+        display: block;
+        margin-top: 12px;
+        font-family: var(--font-mono);
+        color: var(--accent);
+        font-size: 18px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+      }}
+
+      .sem-blackout {{
+        z-index: 25;
+      }}
+      .sem-black-veil {{
+        position: absolute; inset: 0;
+        background: rgba(0,0,0,0.40);
+      }}
+      .sem-black-beam {{
+        position: absolute; top: 150px; bottom: 310px;
+        width: 280px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.18), rgba(255,56,56,0.20), transparent);
+        filter: blur(8px);
+      }}
+      .sem-black-copy {{
+        position: absolute; left: 70px; top: 270px;
+        width: 460px;
+        padding: 22px;
+        border-left: 2px solid var(--accent);
+        background: rgba(0,0,0,0.58);
+        backdrop-filter: blur(7px);
+      }}
+      .sem-black-copy strong {{
+        display: block;
+        margin-top: 10px;
+        font-size: 30px;
+        text-transform: uppercase;
+      }}
+    </style>
+  </head>
+  <body>
+    <div id="root"
+         data-composition-id="main"
+         data-start="0"
+         data-duration="{total_duration:.3f}"
+         data-width="{WIDTH}"
+         data-height="{HEIGHT}">
+
+      {body_html}
+
+      <div id="fog" class="fog clip"
+           data-start="0" data-duration="{total_duration:.3f}" data-track-index="488"></div>
+
+      <div id="dust" class="dust clip"
+           data-start="0" data-duration="{total_duration:.3f}" data-track-index="490">
+        {_dust_motes_html(28)}
+      </div>
+
+      <div id="vignette" class="vignette clip"
+           data-start="0" data-duration="{total_duration:.3f}" data-track-index="500"></div>
+
+      <div id="glitch-overlay" class="glitch-layer clip"
+           data-start="0" data-duration="{total_duration:.3f}" data-track-index="510"></div>
+
+      {film_grain_html}
+      {letterbox_html}
+      {persistent_tag_html}
+      {brand_logo_html}
+      {scroll_hook_html}
+    </div>
+
+    <script>
+      // Safe render mode: GSAP-only deterministic timeline.
+      window.__timelines = window.__timelines || {{}};
+      const tl = gsap.timeline({{paused: true}});
+      {js_code}
+
+      // ── Particles dust : drift continu via GSAP timeline ────
+      {_dust_motes_js(28, total_duration)}
+
+      // ── Fog : drift très lent (full duration) ───────────────
+      tl.fromTo("#fog",
+        {{x: -30, y: -20, scale: 1.05, opacity: 0.55}},
+        {{x: 30, y: 20, scale: 1.10, opacity: 0.70,
+          duration: {total_duration:.3f}, ease: "sine.inOut",
+          yoyo: true, repeat: 1}}, 0);
+
+      // ── Vignette qui respire ────────────────────────────────
+      {vignette_pulse_js}
+
+      window.__timelines["main"] = tl;
+
+      window.__hf = {{
+        duration: {total_duration:.3f},
+        seek: (time) => {{
+          tl.time(time);
+          if (window.__ThreeScene) window.__ThreeScene.update(time);
+        }}
+      }};
+    </script>
+  </body>
+</html>
+"""

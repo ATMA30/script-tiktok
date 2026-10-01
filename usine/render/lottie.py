@@ -22,11 +22,12 @@ Design choices:
 """
 
 import json
-from pathlib import Path
 from typing import Optional
 
+from usine.render.config import ROOT
+
 _MANIFEST_CACHE: Optional[dict] = None
-_MANIFEST_PATH = Path(__file__).parent / "assets" / "lottie" / "manifest.json"
+_MANIFEST_PATH = ROOT / "assets" / "lottie" / "manifest.json"
 _LOTTIE_WEB_CDN = (
     "https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"
 )

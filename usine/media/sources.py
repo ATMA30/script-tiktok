@@ -18,6 +18,7 @@ from usine.media.config import (
     TRUST_CURATED_SOURCES,
 )
 from usine.media.queries import construire_requetes_reelles, enrichir_requete_archive
+from usine.media.reseau import MAX_OCTETS_VIDEO, TYPES_VIDEO, telecharger_vers_fichier
 from usine.media.validation import (
     url_est_suspecte,
     valider_image_historique,
@@ -37,40 +38,15 @@ def telecharger_image_url(img_url: str, chemin_jpg: str, label: str = "") -> boo
     if url_est_suspecte(img_url):
         print(f"      🚫 URL bloquée (domaine suspect) : {img_url[:70]}")
         return False
-    try:
-        resp = requests.get(
-            img_url,
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-                "Accept": "image/jpeg,image/png,image/webp,image/apng,image/*,*/*;q=0.8",
-            },
-            timeout=25,
-            stream=True,
-            allow_redirects=True,
-        )
-        if resp.status_code != 200:
-            return False
-        content_type = resp.headers.get("Content-Type", "").lower()
-        if not any(
-            t in content_type
-            for t in ["image/jpeg", "image/png", "image/jpg", "image/webp"]
-        ):
-            print(f"      ⚠️ Source curated non-image ({content_type[:40]}) — ignorée")
-            return False
-        with open(chemin_jpg, "wb") as f:
-            for chunk in resp.iter_content(32768):
-                f.write(chunk)
-        if os.path.getsize(chemin_jpg) < 8000:
-            os.remove(chemin_jpg)
-            return False
-        USED_SOURCE_URLS.add(canonical)
-        print(f"      📚 Source curated téléchargée ({label or 'image'})")
-        return True
-    except Exception as e:
-        print(f"      ⚠️ Échec source curated {label or img_url[:40]} : {e}")
-        if os.path.exists(chemin_jpg):
-            os.remove(chemin_jpg)
+    entetes = {"Accept": "image/jpeg,image/png,image/webp,image/*;q=0.8"}
+    if not telecharger_vers_fichier(img_url, chemin_jpg, headers=entetes):
         return False
+    if os.path.getsize(chemin_jpg) < 8000:
+        os.remove(chemin_jpg)
+        return False
+    USED_SOURCE_URLS.add(canonical)
+    print(f"      📚 Source curated téléchargée ({label or 'image'})")
+    return True
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -111,20 +87,22 @@ def telecharger_pexels_video(query: str, chemin_mp4: str) -> bool:
                         best_link = vf.get("link")
                         break
 
-            if best_link:
-                resp = requests.get(best_link, timeout=45, stream=True)
-                if resp.status_code == 200:
-                    with open(chemin_mp4, "wb") as f:
-                        for chunk in resp.iter_content(65536):
-                            f.write(chunk)
-                    if os.path.getsize(chemin_mp4) > 50000:
-                        if not verifier_securite_media(chemin_mp4):
-                            os.remove(chemin_mp4)
-                            return False
-                        print(
-                            f"      🎥 [Pexels Video] Vidéo téléchargée -> {os.path.basename(chemin_mp4)}"
-                        )
-                        return True
+            if best_link and telecharger_vers_fichier(
+                best_link,
+                chemin_mp4,
+                max_octets=MAX_OCTETS_VIDEO,
+                types=TYPES_VIDEO,
+                timeout=45,
+                duree_max=180,
+            ):
+                if os.path.getsize(chemin_mp4) > 50000:
+                    if not verifier_securite_media(chemin_mp4):
+                        os.remove(chemin_mp4)
+                        return False
+                    print(
+                        f"      🎥 [Pexels Video] Vidéo téléchargée -> {os.path.basename(chemin_mp4)}"
+                    )
+                    return True
     except Exception as e:
         print(f"      ⚠️ Échec téléchargement vidéo Pexels pour '{query}' : {e}")
     return False
@@ -143,11 +121,7 @@ def telecharger_pexels_image(query: str, chemin: str) -> bool:
         photos = r.get("photos", [])
         if photos:
             url = random.choice(photos)["src"]["large2x"]
-            resp = requests.get(url, timeout=30, stream=True)
-            if resp.status_code == 200:
-                with open(chemin, "wb") as f:
-                    for chunk in resp.iter_content(32768):
-                        f.write(chunk)
+            if telecharger_vers_fichier(url, chemin, timeout=30):
                 if os.path.getsize(chemin) > 5000:
                     if not verifier_securite_image(chemin):
                         os.remove(chemin)
@@ -179,11 +153,7 @@ def telecharger_pixabay_image(query: str, chemin: str) -> bool:
         hits = r.get("hits", [])
         if hits:
             url = random.choice(hits).get("largeImageURL", "")
-            resp = requests.get(url, timeout=30, stream=True)
-            if resp.status_code == 200:
-                with open(chemin, "wb") as f:
-                    for chunk in resp.iter_content(32768):
-                        f.write(chunk)
+            if telecharger_vers_fichier(url, chemin, timeout=30):
                 if os.path.getsize(chemin) > 5000:
                     if not verifier_securite_image(chemin):
                         os.remove(chemin)
@@ -251,29 +221,9 @@ def telecharger_bing_image(
                 print(
                     f"      📥 [Essai {attempts_tested}] Téléchargement : {img_url[:70]}..."
                 )
-                resp = requests.get(
-                    img_url,
-                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
-                    timeout=10,
-                    stream=True,
-                )
-                if resp.status_code != 200:
+                # HTTPS, adresse publique, type image, taille et durée bornées
+                if not telecharger_vers_fichier(img_url, chemin_jpg, timeout=10):
                     continue
-
-                # Vérifier le Content-Type avant d'écrire
-                content_type = resp.headers.get("Content-Type", "")
-                if not any(
-                    t in content_type
-                    for t in ["image/jpeg", "image/png", "image/jpg", "image/webp"]
-                ):
-                    print(
-                        f"      ⚠️ Content-Type non-image ({content_type[:30]}) — ignoré"
-                    )
-                    continue
-
-                with open(chemin_jpg, "wb") as f:
-                    for chunk in resp.iter_content(32768):
-                        f.write(chunk)
 
                 if os.path.getsize(chemin_jpg) < 15000:
                     # Image trop petite (miniature ou erreur)

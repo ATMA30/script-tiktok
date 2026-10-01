@@ -1,11 +1,11 @@
 """Images générées : nettoyage des prompts, Imagen 4 (avec détection de quota), Pollinations."""
 
-import io
 import os
 import re
-import requests
 import time
 import urllib.parse
+
+from usine.media.reseau import telecharger_vers_fichier
 from usine.media import config as media_config
 from usine.media.config import (
     ALLOW_POLLINATIONS_FALLBACK,
@@ -193,16 +193,20 @@ def generer_image_pollinations(prompt: str, chemin_jpg: str) -> bool:
             f"?width={TARGET_W}&height={TARGET_H}&seed={seed}&nologo=true&private=true&enhance=true"
         )
         print("      🧠 [Pollinations IA] Fallback reconstitution...")
-        resp = requests.get(url, timeout=35)
-        if resp.status_code != 200 or len(resp.content) < 5000:
+        source = f"{chemin_jpg}.source"
+        if not telecharger_vers_fichier(url, source, timeout=35):
+            return False
+        if os.path.getsize(source) < 5000:
             print(
-                f"      ⚠️ Pollinations réponse invalide ({resp.status_code}, {len(resp.content)} octets)"
+                f"      ⚠️ Pollinations réponse invalide ({os.path.getsize(source)} octets)"
             )
+            os.remove(source)
             return False
         from PIL import Image
 
-        img = Image.open(io.BytesIO(resp.content), formats=FORMATS_IMAGE).convert("RGB")
-        img.save(chemin_jpg, "JPEG", quality=92, optimize=True)
+        with Image.open(source, formats=FORMATS_IMAGE) as img:
+            img.convert("RGB").save(chemin_jpg, "JPEG", quality=92, optimize=True)
+        os.remove(source)
         if os.path.getsize(chemin_jpg) > 5000:
             print(
                 f"      ✅ [Pollinations IA] Succès -> {os.path.basename(chemin_jpg)}"
@@ -210,9 +214,10 @@ def generer_image_pollinations(prompt: str, chemin_jpg: str) -> bool:
             return True
     except Exception as e:
         print(f"      ⚠️ Échec Pollinations IA : {str(e)[:120]}")
-    if os.path.exists(chemin_jpg):
-        try:
-            os.remove(chemin_jpg)
-        except OSError:
-            pass
+    for residu in (chemin_jpg, f"{chemin_jpg}.source"):
+        if os.path.exists(residu):
+            try:
+                os.remove(residu)
+            except OSError:
+                pass
     return False

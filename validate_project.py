@@ -11,6 +11,7 @@ import argparse
 import json
 from pathlib import Path
 
+from usine.projet import VALIDE
 from utils import trouver_dernier_projet
 
 
@@ -82,6 +83,14 @@ def validate_project(project_dir: Path, strict: bool = False) -> int:
             errors.append(f"visual_plan.json invalide: {exc}")
     else:
         warnings.append("visual_plan.json manquant")
+
+    statut = (script.get("validation") or {}).get("statut")
+    if statut != VALIDE:
+        message = (
+            f"dossier non validé ({statut or 'sans statut'}) : "
+            f"python 0_usine.py --valider {project_dir}"
+        )
+        (errors if strict else warnings).append(message)
 
     final_path = project_dir / "final.mp4"
     if final_path.exists() and final_path.stat().st_size > 100_000:

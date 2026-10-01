@@ -87,7 +87,7 @@ for i, projet in enumerate(PROJETS):
 
     vs = lire_visual_style(projet)
     if vs == "noir":
-        print(f"  🎨 Style : NOIR B&W (mystère)")
+        print("  🎨 Style : NOIR B&W (mystère)")
 
     for step in ETAPES:
         if not run_step(step, projet, visual_style=vs):

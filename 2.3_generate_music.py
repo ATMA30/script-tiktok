@@ -7,6 +7,7 @@ Pipeline :
      (tracks Pixabay Music, YouTube Audio Library, etc. — gratuit, libre commercial)
   2. Fallback : génère un drone d'ambiance cinématique via numpy
 """
+
 import os
 import json
 import wave
@@ -29,22 +30,22 @@ def selectionner_depuis_library(chemin_sortie_mp3):
     """
     os.makedirs(LIBRARY_DIR, exist_ok=True)
     tracks = []
-    for ext in ('*.mp3', '*.wav', '*.m4a', '*.ogg'):
+    for ext in ("*.mp3", "*.wav", "*.m4a", "*.ogg"):
         tracks.extend(glob.glob(os.path.join(LIBRARY_DIR, ext)))
 
     if not tracks:
         print(f"   ℹ️ Bibliothèque vide ({LIBRARY_DIR}/) — fallback drone numpy")
-        print(f"      → Télécharge des tracks 'dark ambient' / 'true crime' depuis :")
-        print(f"        • https://pixabay.com/music/search/dark%20ambient/")
-        print(f"        • https://pixabay.com/music/search/cinematic%20horror/")
-        print(f"        • https://pixabay.com/music/search/suspense%20drone/")
+        print("      → Télécharge des tracks 'dark ambient' / 'true crime' depuis :")
+        print("        • https://pixabay.com/music/search/dark%20ambient/")
+        print("        • https://pixabay.com/music/search/cinematic%20horror/")
+        print("        • https://pixabay.com/music/search/suspense%20drone/")
         print(f"        Et place-les dans {LIBRARY_DIR}/")
         return False
 
     chosen = random.choice(tracks)
     ext_chosen = os.path.splitext(chosen)[1].lower()
 
-    if ext_chosen == '.mp3':
+    if ext_chosen == ".mp3":
         shutil.copy(chosen, chemin_sortie_mp3)
         print(f"   🎵 Track sélectionnée : {os.path.basename(chosen)}")
         return True
@@ -52,11 +53,21 @@ def selectionner_depuis_library(chemin_sortie_mp3):
     # Conversion vers MP3 si autre format
     try:
         import subprocess
+
         result = subprocess.run(
-            ['ffmpeg', '-y', '-i', chosen,
-             '-codec:a', 'libmp3lame', '-b:a', '192k',
-             chemin_sortie_mp3],
-            capture_output=True, timeout=120
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                chosen,
+                "-codec:a",
+                "libmp3lame",
+                "-b:a",
+                "192k",
+                chemin_sortie_mp3,
+            ],
+            capture_output=True,
+            timeout=120,
         )
         if result.returncode == 0:
             print(f"   🎵 Track convertie : {os.path.basename(chosen)} → MP3")
@@ -70,6 +81,7 @@ def selectionner_depuis_library(chemin_sortie_mp3):
 # ═══════════════════════════════════════════════════════
 # OPTION 2 : Score de tension stratifié (fallback)
 # ═══════════════════════════════════════════════════════
+
 
 # ── Helpers pour Drone, Reverb et Noise ───────────────────────────────────────
 def generate_brown_noise(n):
@@ -99,12 +111,12 @@ def schroeder_reverb(x, sample_rate=44100):
     """Simule un espace réverbérant via un réseau de filtres en peigne en parallèle."""
     delays = [0.0297, 0.0371, 0.0411, 0.0437]
     feedbacks = [0.75, 0.72, 0.69, 0.66]
-    
+
     comb_outputs = []
     for d, f in zip(delays, feedbacks):
         delay_samples = int(d * sample_rate)
         comb_outputs.append(feedback_comb_filter(x, delay_samples, f))
-    
+
     summed_comb = np.sum(comb_outputs, axis=0) / len(comb_outputs)
     return 0.4 * summed_comb + 0.6 * x
 
@@ -115,18 +127,18 @@ def physical_heartbeat(sample_rate=44100):
     env1 = (t1 / 0.02) * np.exp(1 - t1 / 0.02)
     env1[t1 > 0.1] *= np.exp(-50 * (t1[t1 > 0.1] - 0.1))
     lub = np.sin(2 * np.pi * 45.0 * t1) * env1
-    
+
     t2 = np.linspace(0, 0.12, int(0.12 * sample_rate))
     env2 = (t2 / 0.015) * np.exp(1 - t2 / 0.015)
     env2[t2 > 0.08] *= np.exp(-60 * (t2[t2 > 0.08] - 0.08))
     dub = np.sin(2 * np.pi * 58.0 * t2) * env2
-    
+
     beat_len = int(0.6 * sample_rate)
     beat = np.zeros(beat_len, dtype=np.float32)
-    beat[:len(t1)] += 0.8 * lub
-    
+    beat[: len(t1)] += 0.8 * lub
+
     offset = int(0.16 * sample_rate)
-    beat[offset:offset+len(t2)] += 0.6 * dub
+    beat[offset : offset + len(t2)] += 0.6 * dub
     return beat
 
 
@@ -200,7 +212,7 @@ def generer_tension_score(chemin_sortie_wav, duree=150, sample_rate=44100):
         local_t = np.linspace(0, 1, i1 - i0, dtype=np.float32)
         riser_freq = 70.0 * (500.0 / 70.0) ** local_t
         riser_phase = 2 * np.pi * np.cumsum(riser_freq) / sample_rate
-        riser_env = local_t ** 2.4
+        riser_env = local_t**2.4
         risers[i0:i1] += 0.13 * np.sin(riser_phase).astype(np.float32) * riser_env
 
     # ── Couche 6 : bruit brun chaud (spectral FFT)
@@ -230,7 +242,7 @@ def generer_tension_score(chemin_sortie_wav, duree=150, sample_rate=44100):
     # ── Couche 4 : heartbeat (BPM qui accélère 55 → 78, avec HRV et modèle physique)
     heartbeat_signal = np.zeros(n, dtype=np.float32)
     single_beat = physical_heartbeat(sample_rate)
-    
+
     trigger_times = []
     curr_t = 0.2
     while curr_t < duree - 0.6:
@@ -242,7 +254,7 @@ def generer_tension_score(chemin_sortie_wav, duree=150, sample_rate=44100):
         jitter = np.random.normal(0, 0.015)
         interval = base_interval + rsa + jitter
         curr_t += max(0.5, min(interval, 1.5))
-        
+
     for t_trig in trigger_times:
         idx = int(t_trig * sample_rate)
         if idx < n:
@@ -267,17 +279,16 @@ def generer_tension_score(chemin_sortie_wav, duree=150, sample_rate=44100):
     # Fades
     fade_in = np.linspace(0, 1, min(int(2.5 * sample_rate), n))
     fade_out = np.linspace(1, 0, min(int(4.0 * sample_rate), n))
-    signal[:len(fade_in)] *= fade_in
-    signal[-len(fade_out):] *= fade_out
+    signal[: len(fade_in)] *= fade_in
+    signal[-len(fade_out) :] *= fade_out
 
     # Stéréo (Haas effect)
     signal_int16 = (signal * 32767).astype(np.int16)
-    stereo = np.column_stack([
-        signal_int16,
-        np.roll(signal_int16, int(sample_rate * 0.011))
-    ])
+    stereo = np.column_stack(
+        [signal_int16, np.roll(signal_int16, int(sample_rate * 0.011))]
+    )
 
-    with wave.open(chemin_sortie_wav, 'w') as wf:
+    with wave.open(chemin_sortie_wav, "w") as wf:
         wf.setnchannels(2)
         wf.setsampwidth(2)
         wf.setframerate(sample_rate)
@@ -300,11 +311,16 @@ def generer_sfx_impact(chemin_sortie, duree=4, sample_rate=44100):
       3. Queue de délai (réverbération spatiale via delay feedback)
     """
     n = int(duree * sample_rate)
-    
+
     # 1. Clic transitoire (50 ms)
     t_transient = np.linspace(0, 0.05, int(0.05 * sample_rate), dtype=np.float32)
-    click = (np.sin(2 * np.pi * 1500.0 * t_transient) + np.sin(2 * np.pi * 3200.0 * t_transient)) * np.exp(-150 * t_transient)
-    noise_burst = np.random.normal(0, 1.0, len(t_transient)).astype(np.float32) * np.exp(-200 * t_transient)
+    click = (
+        np.sin(2 * np.pi * 1500.0 * t_transient)
+        + np.sin(2 * np.pi * 3200.0 * t_transient)
+    ) * np.exp(-150 * t_transient)
+    noise_burst = np.random.normal(0, 1.0, len(t_transient)).astype(
+        np.float32
+    ) * np.exp(-200 * t_transient)
     transient = 0.5 * click + 0.3 * noise_burst
 
     # 2. Corps sub-bass (duree entière)
@@ -315,11 +331,13 @@ def generer_sfx_impact(chemin_sortie, duree=4, sample_rate=44100):
 
     # Assemblage initial
     signal = np.zeros(n, dtype=np.float32)
-    signal[:len(transient)] += transient * 0.7
+    signal[: len(transient)] += transient * 0.7
     signal += body * 0.8
 
     # 3. Queue de délai (space reflections)
-    signal = apply_delay_tail(signal, delay_time=0.22, feedback=0.42, sample_rate=sample_rate)
+    signal = apply_delay_tail(
+        signal, delay_time=0.22, feedback=0.42, sample_rate=sample_rate
+    )
 
     # Normalisation et soft clipping
     signal = np.tanh(signal * 1.2)
@@ -328,7 +346,7 @@ def generer_sfx_impact(chemin_sortie, duree=4, sample_rate=44100):
         signal = signal / peak * 0.85
 
     signal_int16 = (signal * 32767).astype(np.int16)
-    with wave.open(chemin_sortie, 'w') as wf:
+    with wave.open(chemin_sortie, "w") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
         wf.setframerate(sample_rate)
@@ -336,17 +354,19 @@ def generer_sfx_impact(chemin_sortie, duree=4, sample_rate=44100):
     print(f"   ✅ SFX impact généré : {os.path.basename(chemin_sortie)}")
 
 
-def generer_sfx_organique(chemin_sortie, type_organique="heartbeat", duree=6, sample_rate=44100):
+def generer_sfx_organique(
+    chemin_sortie, type_organique="heartbeat", duree=6, sample_rate=44100
+):
     """
     Son organique (battement de coeur).
     Utilise le modèle physique de double battement (lub-dub) sans clic et la variabilité cardiaque (HRV).
     """
     n = int(duree * sample_rate)
     signal = np.zeros(n, dtype=np.float32)
-    
+
     if "heart" in type_organique.lower():
         single_beat = physical_heartbeat(sample_rate)
-        
+
         trigger_times = []
         curr_t = 0.2
         bpm = 65.0
@@ -357,19 +377,19 @@ def generer_sfx_organique(chemin_sortie, type_organique="heartbeat", duree=6, sa
             jitter = np.random.normal(0, 0.01)
             interval = base_interval + rsa + jitter
             curr_t += max(0.4, min(interval, 1.2))
-            
+
         for t_trig in trigger_times:
             idx = int(t_trig * sample_rate)
             if idx < n:
                 length = min(len(single_beat), n - idx)
                 signal[idx : idx + length] += single_beat[:length]
-                
+
     peak = np.max(np.abs(signal))
     if peak > 0:
         signal = signal / peak * 0.75
 
     signal_int16 = (signal * 32767).astype(np.int16)
-    with wave.open(chemin_sortie, 'w') as wf:
+    with wave.open(chemin_sortie, "w") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
         wf.setframerate(sample_rate)
@@ -381,11 +401,23 @@ def wav_to_mp3(chemin_wav, chemin_mp3):
     """Conversion WAV → MP3 via ffmpeg."""
     try:
         import subprocess
+
         result = subprocess.run(
-            ['ffmpeg', '-y', '-i', chemin_wav,
-             '-codec:a', 'libmp3lame', '-b:a', '192k', '-q:a', '2',
-             chemin_mp3],
-            capture_output=True, timeout=60
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                chemin_wav,
+                "-codec:a",
+                "libmp3lame",
+                "-b:a",
+                "192k",
+                "-q:a",
+                "2",
+                chemin_mp3,
+            ],
+            capture_output=True,
+            timeout=60,
         )
         if result.returncode == 0:
             os.remove(chemin_wav)
@@ -409,11 +441,11 @@ def generer_musique(dossier_projet):
         with open(script_path, "r", encoding="utf-8") as f:
             script = json.load(f)
 
-    print(f"\n🎵 SÉLECTION MUSIQUE D'AMBIANCE")
+    print("\n🎵 SÉLECTION MUSIQUE D'AMBIANCE")
 
     projet_name = os.path.basename(dossier_projet)
-    chemin_mp3  = f"musiques/{projet_name}_ambient.mp3"
-    chemin_wav  = f"musiques/{projet_name}_ambient.wav"
+    chemin_mp3 = f"musiques/{projet_name}_ambient.mp3"
+    chemin_wav = f"musiques/{projet_name}_ambient.wav"
 
     if os.path.exists(chemin_mp3):
         print(f"   ⏭️ Musique déjà prête : {os.path.basename(chemin_mp3)}")
@@ -432,19 +464,23 @@ def generer_musique(dossier_projet):
         os.makedirs(f"{dossier_projet}/audio/sfx", exist_ok=True)
 
         for scene in script.get("scenes", []):
-            s_id = scene['id']
-            s_type = scene.get('lyria_type', 'ambiance')
-            s_prompt = scene.get('lyria_prompt', '')
+            s_id = scene["id"]
+            s_type = scene.get("lyria_type", "ambiance")
+            s_prompt = scene.get("lyria_prompt", "")
             chemin_sfx = f"{dossier_projet}/audio/sfx/scene_{s_id}.wav"
 
-            if s_type == 'impact':
+            if s_type == "impact":
                 print(f"   🔊 Scène {s_id} : impact")
                 generer_sfx_impact(chemin_sfx)
-            elif s_type == 'organique':
+            elif s_type == "organique":
                 print(f"   🔊 Scène {s_id} : organique")
                 generer_sfx_organique(chemin_sfx, s_prompt)
 
-    return chemin_mp3 if os.path.exists(chemin_mp3) else (chemin_wav if os.path.exists(chemin_wav) else None)
+    return (
+        chemin_mp3
+        if os.path.exists(chemin_mp3)
+        else (chemin_wav if os.path.exists(chemin_wav) else None)
+    )
 
 
 if __name__ == "__main__":

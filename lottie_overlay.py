@@ -22,7 +22,6 @@ Design choices:
 """
 
 import json
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -63,9 +62,7 @@ def lottie_head_html() -> str:
     """Charge lottie-web en script classique, compatible HyperFrames 0.5.7."""
     if not load_manifest().get("assets"):
         return ""
-    return (
-        f'<script src="{_LOTTIE_WEB_CDN}"></script>\n'
-    )
+    return f'<script src="{_LOTTIE_WEB_CDN}"></script>\n'
 
 
 def asset_animation_data(asset_id: str) -> Optional[dict]:
@@ -121,22 +118,37 @@ def validate_overlay_spec(raw: dict) -> Optional[dict]:
     in_time = clamp(raw.get("in_time"), 0.0, 600.0, 0.0)
     duration = clamp(
         raw.get("duration", asset["natural_duration_s"]),
-        0.1, 30.0,
+        0.1,
+        30.0,
         asset["natural_duration_s"],
     )
     x_pct = clamp(raw.get("x_pct"), -20.0, 120.0, 50.0)
     y_pct = clamp(raw.get("y_pct"), -20.0, 120.0, 50.0)
     width_pct = clamp(raw.get("width_pct"), 1.0, 120.0, 100.0)
     height_pct = clamp(raw.get("height_pct"), 1.0, 120.0, width_pct)
-    opacity = clamp(raw.get("opacity", asset["default_opacity"]), 0.0, 1.0,
-                    asset["default_opacity"])
+    opacity = clamp(
+        raw.get("opacity", asset["default_opacity"]), 0.0, 1.0, asset["default_opacity"]
+    )
 
     blend_mode = str(raw.get("blend_mode", asset["default_blend"]))
     # mix-blend-mode whitelist; fall back to default on unknown values.
     valid_blends = {
-        "normal", "multiply", "screen", "overlay", "darken", "lighten",
-        "color-dodge", "color-burn", "hard-light", "soft-light",
-        "difference", "exclusion", "hue", "saturation", "color", "luminosity",
+        "normal",
+        "multiply",
+        "screen",
+        "overlay",
+        "darken",
+        "lighten",
+        "color-dodge",
+        "color-burn",
+        "hard-light",
+        "soft-light",
+        "difference",
+        "exclusion",
+        "hue",
+        "saturation",
+        "color",
+        "luminosity",
     }
     if blend_mode not in valid_blends:
         blend_mode = asset["default_blend"]
@@ -216,8 +228,7 @@ def build_lottie_overlay_block(
         1,
         int(
             round(
-                float(animation_data.get("op", 1))
-                - float(animation_data.get("ip", 0))
+                float(animation_data.get("op", 1)) - float(animation_data.get("ip", 0))
             )
         ),
     )
@@ -238,53 +249,53 @@ def build_lottie_overlay_block(
     seek_var = f"__hf_seek_{el_id}"
     time_var = f"__hf_time_{el_id}"
     js_lines = [
-        f'var {anim_var} = lottie.loadAnimation({{'
+        f"var {anim_var} = lottie.loadAnimation({{"
         f'container: document.getElementById("{el_id}"), '
         f'renderer: "svg", loop: false, autoplay: false, '
-        f'animationData: {animation_json}, '
+        f"animationData: {animation_json}, "
         f'rendererSettings: {{preserveAspectRatio: "xMidYMid meet"}}'
-        f'}});',
+        f"}});",
         # HyperFrames auto-discovers the native lottie-web instance and seeks it
         # in global milliseconds. Teach that same instance how to map global
         # composition time into this overlay's local authored frame range.
-        f'var {native_goto_var} = {anim_var}.goToAndStop.bind({anim_var});',
-        f'{anim_var}.goToAndStop = function(value, isFrame) {{'
-        f'if (isFrame) return {native_goto_var}(value, true); '
-        f'var globalSeconds = Number(value) / 1000; '
-        f'var progress = Math.max(0, Math.min(1, '
-        f'(globalSeconds - {t_in:.6f}) / {dur:.6f})); '
-        f'return {native_goto_var}(progress * {natural_frames - 1}, true);'
-        f'}};',
-        f'window.__hfLottie = window.__hfLottie || [];',
-        f'window.__hfLottie.push({anim_var});',
-        f'var {seek_var} = tl.seek;',
-        f'tl.seek = function(position, suppressEvents) {{ '
-        f'var result = {seek_var}.call(this, position, suppressEvents); '
-        f'var seconds = Number(position); '
-        f'if (Number.isFinite(seconds)) '
-        f'{{ {anim_var}.goToAndStop(seconds * 1000, false); }} '
-        f'return result; '
-        f'}};',
-        f'var {time_var} = tl.time;',
-        f'tl.time = function(value, suppressEvents) {{ '
-        f'if (arguments.length === 0) return {time_var}.call(this); '
-        f'var result = {time_var}.call(this, value, suppressEvents); '
-        f'var seconds = Number(value); '
-        f'if (Number.isFinite(seconds)) '
-        f'{{ {anim_var}.goToAndStop(seconds * 1000, false); }} '
-        f'return result; '
-        f'}};',
+        f"var {native_goto_var} = {anim_var}.goToAndStop.bind({anim_var});",
+        f"{anim_var}.goToAndStop = function(value, isFrame) {{"
+        f"if (isFrame) return {native_goto_var}(value, true); "
+        f"var globalSeconds = Number(value) / 1000; "
+        f"var progress = Math.max(0, Math.min(1, "
+        f"(globalSeconds - {t_in:.6f}) / {dur:.6f})); "
+        f"return {native_goto_var}(progress * {natural_frames - 1}, true);"
+        f"}};",
+        "window.__hfLottie = window.__hfLottie || [];",
+        f"window.__hfLottie.push({anim_var});",
+        f"var {seek_var} = tl.seek;",
+        f"tl.seek = function(position, suppressEvents) {{ "
+        f"var result = {seek_var}.call(this, position, suppressEvents); "
+        f"var seconds = Number(position); "
+        f"if (Number.isFinite(seconds)) "
+        f"{{ {anim_var}.goToAndStop(seconds * 1000, false); }} "
+        f"return result; "
+        f"}};",
+        f"var {time_var} = tl.time;",
+        f"tl.time = function(value, suppressEvents) {{ "
+        f"if (arguments.length === 0) return {time_var}.call(this); "
+        f"var result = {time_var}.call(this, value, suppressEvents); "
+        f"var seconds = Number(value); "
+        f"if (Number.isFinite(seconds)) "
+        f"{{ {anim_var}.goToAndStop(seconds * 1000, false); }} "
+        f"return result; "
+        f"}};",
         # Static fade in/out keyed on master timeline.
         f'gsap.set("#{el_id}", {{opacity: 0}});',
         f'tl.to("#{el_id}", {{opacity: {spec["opacity"]:.3f}, duration: {fade:.3f}, ease: "power1.out"}}, {t_in:.3f});',
         f'tl.to("#{el_id}", {{opacity: 0, duration: {fade:.3f}, ease: "power1.in"}}, {max(t_in, t_out - fade):.3f});',
         # Frame scrubbing.
-        f'var {head_var} = {{f: 0}};',
-        f'tl.fromTo({head_var}, {{f: 0}}, {{f: {natural_frames - 1}, '
+        f"var {head_var} = {{f: 0}};",
+        f"tl.fromTo({head_var}, {{f: 0}}, {{f: {natural_frames - 1}, "
         f'duration: {dur:.3f}, ease: "none", '
-        f'onUpdate: function() {{ if ({anim_var}) '
-        f'{{ {anim_var}.goToAndStop({head_var}.f, true); }} }} '
-        f'}}, {t_in:.3f});',
+        f"onUpdate: function() {{ if ({anim_var}) "
+        f"{{ {anim_var}.goToAndStop({head_var}.f, true); }} }} "
+        f"}}, {t_in:.3f});",
     ]
     return html_lines, js_lines
 

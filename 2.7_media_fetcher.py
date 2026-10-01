@@ -959,9 +959,9 @@ def contexte_validation_media(
     if scene_text:
         parts.append(f"SCENE_TEXT: {scene_text[:420]}")
     if veo_prompt:
-        parts.append(
-            f"EXPECTED_VISUAL: {re.sub(r'\[STYLE LOCK[^\]]*\]', '', veo_prompt, flags=re.IGNORECASE)[:520]}"
-        )
+        # Hors f-string : un antislash dans l'expression casse Python < 3.12
+        visual = re.sub(r"\[STYLE LOCK[^\]]*\]", "", veo_prompt, flags=re.IGNORECASE)
+        parts.append(f"EXPECTED_VISUAL: {visual[:520]}")
     return "\n".join(p for p in parts if p)
 
 
@@ -1000,7 +1000,7 @@ def verifier_securite_image(chemin_jpg: str) -> bool:
                 ),
             )
             if response.text is None:
-                print(f"      🛡️ Sécurité : Réponse nulle -> rejeté par précaution")
+                print("      🛡️ Sécurité : Réponse nulle -> rejeté par précaution")
                 return False
             ans = response.text.strip().upper()
             is_safe = "SAFE" in ans and "UNSAFE" not in ans
@@ -1070,7 +1070,7 @@ def valider_image_historique(
                 ),
             )
             if response.text is None:
-                print(f"      🔍 Pertinence : Réponse nulle -> rejeté")
+                print("      🔍 Pertinence : Réponse nulle -> rejeté")
                 return False
             ans = response.text.strip().upper()
             is_valid = "YES" in ans
@@ -1239,7 +1239,7 @@ def auditer_et_nettoyer_cache(
                     plan["file_path"] = ""
                     suppr_count += 1
                 else:
-                    print(f"   ✅ Cache validé.")
+                    print("   ✅ Cache validé.")
 
     print("\n" + "═" * 56)
     print(
@@ -1435,7 +1435,7 @@ def generer_image_imagen4(prompt: str, chemin_jpg: str) -> bool:
                 )
 
                 if not response.generated_images:
-                    print(f"      ⚠️ Aucun pixel renvoyé")
+                    print("      ⚠️ Aucun pixel renvoyé")
                     time.sleep(2)
                     continue
 
@@ -1449,7 +1449,7 @@ def generer_image_imagen4(prompt: str, chemin_jpg: str) -> bool:
                     )
                     return True
                 else:
-                    print(f"      ⚠️ Fichier trop petit -> retry")
+                    print("      ⚠️ Fichier trop petit -> retry")
 
             except Exception as e:
                 msg = str(e)
@@ -1466,7 +1466,7 @@ def generer_image_imagen4(prompt: str, chemin_jpg: str) -> bool:
                         break
                 if "safety" in msg.lower() or "blocked" in msg.lower():
                     print(
-                        f"      ⚠️ Bloqué par le filtre de sécurité de ce modèle -> passage au modèle suivant"
+                        "      ⚠️ Bloqué par le filtre de sécurité de ce modèle -> passage au modèle suivant"
                     )
                     break
                 print(f"      ⚠️ Erreur Imagen (Essai {attempt + 1}) : {msg[:120]}")
@@ -1492,7 +1492,7 @@ def generer_image_pollinations(prompt: str, chemin_jpg: str) -> bool:
             f"https://image.pollinations.ai/prompt/{encoded}"
             f"?width={TARGET_W}&height={TARGET_H}&seed={seed}&nologo=true&private=true&enhance=true"
         )
-        print(f"      🧠 [Pollinations IA] Fallback reconstitution...")
+        print("      🧠 [Pollinations IA] Fallback reconstitution...")
         resp = requests.get(url, timeout=35)
         if resp.status_code != 200 or len(resp.content) < 5000:
             print(
@@ -1881,7 +1881,7 @@ def telecharger_bing_image(
                 else:
                     if os.path.exists(chemin_jpg):
                         os.remove(chemin_jpg)
-                    print(f"      ↩️  Rejetée, on essaie la suivante...")
+                    print("      ↩️  Rejetée, on essaie la suivante...")
 
             except Exception as e:
                 print(f"      ⚠️ Échec pour {img_url[:50]} : {e}")
@@ -2587,9 +2587,7 @@ def traiter_fetcher(dossier_projet: str):
                 else:
                     STYLE_SUFFIX = STYLE_SUFFIX_ANIME
                     style_label = "anime couleur"
-                print(
-                    f"   🎨 Style visuel : {visual_style.upper()} ({style_label})"
-                )
+                print(f"   🎨 Style visuel : {visual_style.upper()} ({style_label})")
                 # Charger la visual_bible pour la consistance des personnages
                 raw_bible = script_data.get("visual_bible", {})
                 if isinstance(raw_bible, dict):

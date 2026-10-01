@@ -26,7 +26,7 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List
 from lottie_overlay import (
     build_lottie_overlays_for_scene,
     lottie_head_html,
@@ -381,12 +381,10 @@ def red_word_indices(text):
         return indices
 
     # 1. Chercher les mots clés dramatiques
-    has_keywords = False
     for idx, w in enumerate(words):
         w_clean = re.sub(r"[^\w]", "", w).lower()
         if w_clean in DRAMATIC_KEYWORDS_FR:
             indices.append(idx)
-            has_keywords = True
 
     return indices
 
@@ -416,7 +414,7 @@ def _split_by_word_budget(sentence, max_words):
         "avant",
     }
     chunks, current = [], []
-    for i, w in enumerate(words):
+    for w in words:
         current.append(w)
         # Coupe naturelle si on dépasse max_words ET on est sur un point de coupe
         if len(current) >= max_words:
@@ -3900,7 +3898,6 @@ def build_image_block(
         variant = MOTION_VARIANTS[variant_idx]
     tilt_table = [-0.28, 0.22, -0.14, 0.24, -0.18, 0.16, -0.20, 0.12]
     tilt = tilt_table[(scene_idx * 2 + j * 3) % len(tilt_table)]
-    is_first_shot = j == 0 and not in_transition_from_prev
     is_generated_media = "generated" in (source_type or "")
 
     # Rythme: les plans courts sont plus tendus (intensité +), les plans longs
@@ -4419,7 +4416,6 @@ def build_scene_blocks(
             html_parts.extend(lottie_html)
             js_parts.extend(lottie_js)
 
-    is_last_scene = scene_idx == total_scenes - 1
     subtitle_budget = audio_duration
 
     chunks = split_subtitle(
@@ -6782,9 +6778,9 @@ def build_sfx_blocks(
     sfx_available,
     total_duration,
     assets_dir,
-    woosh_ts=[],
-    glitch_ts=[],
-    boom_ts=[],
+    woosh_ts=(),
+    glitch_ts=(),
+    boom_ts=(),
 ):
     """Ajoute audio elements timés pour HyperFrames browser preview."""
     html_parts = []
@@ -7564,7 +7560,7 @@ def render_projet(projet_dir, do_check=False, prepare_only=False):
             print(f"   🔊 SFX intégrés : {', '.join(sfx_available.keys())}")
     else:
         print(
-            f"   ℹ️  Aucun SFX trouvé dans assets/sfx/ (optionnel : drop tes whoosh.mp3, drone.mp3 etc.)"
+            "   ℹ️  Aucun SFX trouvé dans assets/sfx/ (optionnel : drop tes whoosh.mp3, drone.mp3 etc.)"
         )
 
     # ── Musique d'ambiance stressante (track audio continue, durée >= vidéo)
@@ -7585,7 +7581,7 @@ def render_projet(projet_dir, do_check=False, prepare_only=False):
         )
     else:
         print(
-            f"   ℹ️  Pas de musique d'ambiance (USE_AMBIENT_MUSIC=0 ou échec génération)"
+            "   ℹ️  Pas de musique d'ambiance (USE_AMBIENT_MUSIC=0 ou échec génération)"
         )
 
     html_doc = build_html(projet_name, scenes_meta, total)

@@ -18,7 +18,6 @@ It writes:
 """
 
 import json
-import os
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -49,8 +48,9 @@ def lottie_skeleton(name: str, fps: int, duration_frames: int, layers: list) -> 
     }
 
 
-def shape_layer(nm: str, in_frame: int, out_frame: int, shapes: list,
-                transform: dict | None = None) -> dict:
+def shape_layer(
+    nm: str, in_frame: int, out_frame: int, shapes: list, transform: dict | None = None
+) -> dict:
     """Return a 'shape' layer (type 4) with the given child shapes."""
     return {
         "ddd": 0,
@@ -115,19 +115,21 @@ def make_scanline_sweep() -> dict:
     line_h = 18  # was 6 — bolder so it survives screen blend on dark frames
     transform = {
         "o": {
-            "a": 1, "k": [
-                {"t": 0,        "s": [0]},
-                {"t": 4,        "s": [100]},
-                {"t": dur - 4,  "s": [100]},
-                {"t": dur,      "s": [0]},
-            ]
+            "a": 1,
+            "k": [
+                {"t": 0, "s": [0]},
+                {"t": 4, "s": [100]},
+                {"t": dur - 4, "s": [100]},
+                {"t": dur, "s": [0]},
+            ],
         },
         "r": {"a": 0, "k": 0},
         "p": {
-            "a": 1, "k": [
-                {"t": 0,    "s": [W / 2, -line_h, 0]},
-                {"t": dur,  "s": [W / 2, H + line_h, 0]},
-            ]
+            "a": 1,
+            "k": [
+                {"t": 0, "s": [W / 2, -line_h, 0]},
+                {"t": dur, "s": [W / 2, H + line_h, 0]},
+            ],
         },
         "a": {"a": 0, "k": [0, 0, 0]},
         "s": {"a": 0, "k": [100, 100, 100]},
@@ -136,7 +138,9 @@ def make_scanline_sweep() -> dict:
     glow_shapes = rect_shape(W, line_h * 4, color(255, 255, 255, 0.35))
     core_shapes = rect_shape(W, line_h, color(255, 255, 255, 1.0))
     layer = shape_layer(
-        "scanline", 0, dur,
+        "scanline",
+        0,
+        dur,
         [
             {"ty": "gr", "it": glow_shapes, "nm": "Glow"},
             {"ty": "gr", "it": core_shapes, "nm": "Core"},
@@ -155,27 +159,31 @@ def make_redacted_bar() -> dict:
     bar_h = 64
     transform = {
         "o": {
-            "a": 1, "k": [
-                {"t": 0,        "s": [0]},
-                {"t": 6,        "s": [100]},
-                {"t": dur - 6,  "s": [100]},
-                {"t": dur,      "s": [0]},
-            ]
+            "a": 1,
+            "k": [
+                {"t": 0, "s": [0]},
+                {"t": 6, "s": [100]},
+                {"t": dur - 6, "s": [100]},
+                {"t": dur, "s": [0]},
+            ],
         },
         "r": {"a": 0, "k": 0},
         "p": {
-            "a": 1, "k": [
-                {"t": 0,    "s": [-bar_w / 2, H / 2, 0]},
-                {"t": 10,   "s": [W / 2,      H / 2, 0]},
-                {"t": dur - 10, "s": [W / 2,  H / 2, 0]},
-                {"t": dur,  "s": [W + bar_w / 2, H / 2, 0]},
-            ]
+            "a": 1,
+            "k": [
+                {"t": 0, "s": [-bar_w / 2, H / 2, 0]},
+                {"t": 10, "s": [W / 2, H / 2, 0]},
+                {"t": dur - 10, "s": [W / 2, H / 2, 0]},
+                {"t": dur, "s": [W + bar_w / 2, H / 2, 0]},
+            ],
         },
         "a": {"a": 0, "k": [0, 0, 0]},
         "s": {"a": 0, "k": [100, 100, 100]},
     }
     shapes = rect_shape(bar_w, bar_h, color(10, 10, 10, 1.0))
-    layer = shape_layer("redacted", 0, dur, [{"ty": "gr", "it": shapes, "nm": "Group"}], transform)
+    layer = shape_layer(
+        "redacted", 0, dur, [{"ty": "gr", "it": shapes, "nm": "Group"}], transform
+    )
     return lottie_skeleton("redacted_bar", fps, dur, [layer])
 
 
@@ -187,12 +195,12 @@ def make_radar_ping() -> dict:
 
     def ring_layer(ind: int, offset_frames: int, stroke_w: float = 14.0) -> dict:
         size_kf = [
-            keyframe(offset_frames,      [60, 60]),
+            keyframe(offset_frames, [60, 60]),
             keyframe(offset_frames + 30, [820, 820]),
         ]
         opacity_kf = [
-            keyframe(offset_frames,      [0]),
-            keyframe(offset_frames + 3,  [100]),
+            keyframe(offset_frames, [0]),
+            keyframe(offset_frames + 3, [100]),
             keyframe(offset_frames + 30, [0]),
         ]
         shapes = [
@@ -212,7 +220,9 @@ def make_radar_ping() -> dict:
                         "c": {"a": 0, "k": color(255, 255, 255)[:3] + [1.0]},
                         "o": {"a": 1, "k": opacity_kf},
                         "w": {"a": 0, "k": stroke_w},
-                        "lc": 2, "lj": 2, "ml": 4,
+                        "lc": 2,
+                        "lj": 2,
+                        "ml": 4,
                         "nm": "Stroke",
                     },
                 ],
@@ -234,8 +244,8 @@ def make_radar_ping() -> dict:
 
     def center_dot_layer(ind: int) -> dict:
         op_kf = [
-            keyframe(0,  [0]),
-            keyframe(2,  [100]),
+            keyframe(0, [0]),
+            keyframe(2, [100]),
             keyframe(10, [100]),
             keyframe(dur, [0]),
         ]
@@ -255,7 +265,13 @@ def make_radar_ping() -> dict:
                     "ty": "gr",
                     "nm": "Dot",
                     "it": [
-                        {"ty": "el", "d": 1, "s": {"a": 0, "k": [42, 42]}, "p": {"a": 0, "k": [0, 0]}, "nm": "Ellipse"},
+                        {
+                            "ty": "el",
+                            "d": 1,
+                            "s": {"a": 0, "k": [42, 42]},
+                            "p": {"a": 0, "k": [0, 0]},
+                            "nm": "Ellipse",
+                        },
                         {
                             "ty": "fl",
                             "c": {"a": 0, "k": [1.0, 1.0, 1.0, 1.0]},
@@ -269,7 +285,12 @@ def make_radar_ping() -> dict:
         }
 
     # 3 expanding rings + a bright center dot for a "lock" feel
-    layers = [center_dot_layer(1), ring_layer(2, 0), ring_layer(3, 6), ring_layer(4, 12)]
+    layers = [
+        center_dot_layer(1),
+        ring_layer(2, 0),
+        ring_layer(3, 6),
+        ring_layer(4, 12),
+    ]
     return lottie_skeleton("radar_ping", fps, dur, layers)
 
 
@@ -294,12 +315,13 @@ def make_crosshair_scan() -> dict:
             "bm": 0,
             "ks": {
                 "o": {
-                    "a": 1, "k": [
+                    "a": 1,
+                    "k": [
                         keyframe(0, [0]),
                         keyframe(op_in, [80]),
                         keyframe(op_out, [80]),
                         keyframe(dur, [0]),
-                    ]
+                    ],
                 },
                 "r": {"a": 0, "k": 0},
                 "p": {"a": 0, "k": [0, 0, 0]},
@@ -328,7 +350,9 @@ def make_crosshair_scan() -> dict:
                             "c": {"a": 0, "k": col[:3] + [1.0]},
                             "o": {"a": 0, "k": 100},
                             "w": {"a": 0, "k": 6},
-                            "lc": 2, "lj": 2, "ml": 4,
+                            "lc": 2,
+                            "lj": 2,
+                            "ml": 4,
                             "nm": "Stroke",
                         },
                     ],
@@ -366,8 +390,16 @@ def make_crosshair_scan() -> dict:
 def make_glitch_burst() -> dict:
     fps, dur = 30, 18  # 0.6 s
 
-    def slab_layer(ind: int, y: float, w: float, h: float, t_in: int,
-                   slab_color: list, dx_in: float = -160, dx_out: float = 160) -> dict:
+    def slab_layer(
+        ind: int,
+        y: float,
+        w: float,
+        h: float,
+        t_in: int,
+        slab_color: list,
+        dx_in: float = -160,
+        dx_out: float = 160,
+    ) -> dict:
         return {
             "ddd": 0,
             "ind": ind,
@@ -380,19 +412,21 @@ def make_glitch_burst() -> dict:
             "bm": 0,
             "ks": {
                 "o": {
-                    "a": 1, "k": [
-                        keyframe(t_in,     [0]),
+                    "a": 1,
+                    "k": [
+                        keyframe(t_in, [0]),
                         keyframe(t_in + 1, [100]),
                         keyframe(t_in + 4, [100]),
                         keyframe(t_in + 5, [0]),
-                    ]
+                    ],
                 },
                 "r": {"a": 0, "k": 0},
                 "p": {
-                    "a": 1, "k": [
-                        keyframe(t_in,     [W / 2 + dx_in,  y, 0]),
+                    "a": 1,
+                    "k": [
+                        keyframe(t_in, [W / 2 + dx_in, y, 0]),
                         keyframe(t_in + 5, [W / 2 + dx_out, y, 0]),
-                    ]
+                    ],
                 },
                 "a": {"a": 0, "k": [0, 0, 0]},
                 "s": {"a": 0, "k": [100, 100, 100]},
@@ -402,11 +436,15 @@ def make_glitch_burst() -> dict:
 
     # Alternate dark and bright slabs for a stronger RGB-split feel.
     layers = [
-        slab_layer(1, H * 0.22, W, 60, 0,  color(5, 5, 5, 1.0)),
-        slab_layer(2, H * 0.40, W, 32, 2,  color(255, 255, 255, 1.0), dx_in=140, dx_out=-140),
+        slab_layer(1, H * 0.22, W, 60, 0, color(5, 5, 5, 1.0)),
+        slab_layer(
+            2, H * 0.40, W, 32, 2, color(255, 255, 255, 1.0), dx_in=140, dx_out=-140
+        ),
         slab_layer(3, H * 0.58, W, 120, 4, color(5, 5, 5, 1.0)),
-        slab_layer(4, H * 0.74, W, 24, 6,  color(255, 255, 255, 1.0), dx_in=-200, dx_out=200),
-        slab_layer(5, H * 0.86, W, 50, 8,  color(5, 5, 5, 1.0)),
+        slab_layer(
+            4, H * 0.74, W, 24, 6, color(255, 255, 255, 1.0), dx_in=-200, dx_out=200
+        ),
+        slab_layer(5, H * 0.86, W, 50, 8, color(5, 5, 5, 1.0)),
     ]
     return lottie_skeleton("glitch_burst", fps, dur, layers)
 
@@ -420,11 +458,12 @@ def make_vignette_pulse() -> dict:
     # We approximate a vignette with a large ellipse stroke fading in/out.
     transform = {
         "o": {
-            "a": 1, "k": [
-                keyframe(0,        [40]),
+            "a": 1,
+            "k": [
+                keyframe(0, [40]),
                 keyframe(dur // 2, [85]),
-                keyframe(dur,      [40]),
-            ]
+                keyframe(dur, [40]),
+            ],
         },
         "r": {"a": 0, "k": 0},
         "p": {"a": 0, "k": [W / 2, H / 2, 0]},
@@ -448,7 +487,9 @@ def make_vignette_pulse() -> dict:
                     "c": {"a": 0, "k": [0, 0, 0, 1.0]},
                     "o": {"a": 0, "k": 100},
                     "w": {"a": 0, "k": 480},
-                    "lc": 2, "lj": 2, "ml": 4,
+                    "lc": 2,
+                    "lj": 2,
+                    "ml": 4,
                     "nm": "Stroke",
                 },
             ],
@@ -539,18 +580,20 @@ def main():
         with open(out_path, "w", encoding="utf-8") as f:
             json.dump(data, f, separators=(",", ":"))
         size_kb = out_path.stat().st_size / 1024
-        manifest.append({
-            "id": asset["id"],
-            "file": f"library/{asset['id']}.json",
-            "tags": asset["tags"],
-            "default_blend": asset["default_blend"],
-            "default_opacity": asset["default_opacity"],
-            "monochrome_safe": asset["monochrome_safe"],
-            "natural_duration_s": asset["natural_duration_s"],
-            "looping": asset["looping"],
-            "description": asset["description"],
-            "size_kb": round(size_kb, 1),
-        })
+        manifest.append(
+            {
+                "id": asset["id"],
+                "file": f"library/{asset['id']}.json",
+                "tags": asset["tags"],
+                "default_blend": asset["default_blend"],
+                "default_opacity": asset["default_opacity"],
+                "monochrome_safe": asset["monochrome_safe"],
+                "natural_duration_s": asset["natural_duration_s"],
+                "looping": asset["looping"],
+                "description": asset["description"],
+                "size_kb": round(size_kb, 1),
+            }
+        )
         print(f"  ✅ {asset['id']:18s} → {out_path.name}  ({size_kb:.1f} KB)")
 
     manifest_path = HERE / "manifest.json"

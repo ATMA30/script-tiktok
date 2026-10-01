@@ -126,7 +126,6 @@ def mode_mystere():
             return
 
         # Trouver les 2 derniers projets créés (ep01 et ep02)
-        import time as _time
 
         projets = sorted(
             PROJETS_DIR.glob("*/script.json"),

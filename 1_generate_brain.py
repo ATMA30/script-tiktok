@@ -49,12 +49,14 @@ def load_subject_memory() -> dict:
                 data = json.loads(sj.read_text(encoding="utf-8"))
                 title = (data.get("niche") or "").strip()
                 if title:
-                    mem["subjects"].append({
-                        "title": title,
-                        "keywords": _extract_keywords(title),
-                        "project_id": proj.name,
-                        "source": "rebuilt_from_project",
-                    })
+                    mem["subjects"].append(
+                        {
+                            "title": title,
+                            "keywords": _extract_keywords(title),
+                            "project_id": proj.name,
+                            "source": "rebuilt_from_project",
+                        }
+                    )
             except Exception:
                 pass
     save_subject_memory(mem)
@@ -71,12 +73,26 @@ def save_subject_memory(mem: dict):
 def _extract_keywords(text: str) -> list[str]:
     """Extrait les mots distinctifs (>= 5 lettres) d'un titre, hors stop-words."""
     stop = {
-        "affaire", "mystere", "mystère", "disparition", "etrange", "étrange",
-        "histoire", "secret", "mysterieux", "mystérieuse", "inexpliquée",
-        "inexplique", "documentée", "documente", "celebre", "célèbre",
+        "affaire",
+        "mystere",
+        "mystère",
+        "disparition",
+        "etrange",
+        "étrange",
+        "histoire",
+        "secret",
+        "mysterieux",
+        "mystérieuse",
+        "inexpliquée",
+        "inexplique",
+        "documentée",
+        "documente",
+        "celebre",
+        "célèbre",
     }
     return [
-        w for w in re.findall(r"[a-z0-9àâäéèêëîïôöùûüç]{4,}", (text or "").lower())
+        w
+        for w in re.findall(r"[a-z0-9àâäéèêëîïôöùûüç]{4,}", (text or "").lower())
         if w not in stop
     ]
 
@@ -137,6 +153,7 @@ def _instantiate_template(tpl: str) -> str:
     rester compatible avec discover_candidates qui appelle cette fonction)."""
     return tpl
 
+
 # ═══════════════════════════════════════════════════════════
 #  NICHES TRUE CRIME / PARANORMAL FALLBACKS
 #  Banque élargie de cas documentés. Le pipeline pioche dedans
@@ -185,33 +202,53 @@ NICHES_HORREUR = [
     "Le mystère du Bermuda Triangle et la disparition du vol 19 en 1945.",
 ]
 
+
 # ═══════════════════════════════════════════════════════════
 #  MODÈLES STRUCTURÉS PYDANTIC
 # ═══════════════════════════════════════════════════════════
 class VisualBibleEntry(BaseModel):
     name: str = Field(description="Nom du personnage principal, lieu ou objet clé.")
-    description: str = Field(description="Description physique ou atmosphérique complète en anglais pour assurer la cohérence visuelle.")
+    description: str = Field(
+        description="Description physique ou atmosphérique complète en anglais pour assurer la cohérence visuelle."
+    )
+
 
 class Scene(BaseModel):
     id: int = Field(description="Numéro de la scène (de 1 à 10)")
-    audio_tts: str = Field(description="Texte exact lu par la voix-off en français, de 18 à 25 mots maximum. Phrases courtes, pas de métaphore.")
+    audio_tts: str = Field(
+        description="Texte exact lu par la voix-off en français, de 18 à 25 mots maximum. Phrases courtes, pas de métaphore."
+    )
     subtitle: str = Field(description="Sous-titre, identique mot-pour-mot à audio_tts.")
-    veo_prompt: str = Field(description="Description physique précise de l'action de l'image en anglais. Sujet centré, pas de gore. Finit obligatoirement par le STYLE LOCK.")
-    lyria_prompt: str = Field(description="Description d'ambiance sonore/foley en anglais. Finit obligatoirement par ', no melody, no music'.")
-    real_media_queries: List[str] = Field(description="""2 requêtes précises en anglais pour trouver des photos ou vidéos réelles d'archives de cette affaire historique spécifique.
+    veo_prompt: str = Field(
+        description="Description physique précise de l'action de l'image en anglais. Sujet centré, pas de gore. Finit obligatoirement par le STYLE LOCK."
+    )
+    lyria_prompt: str = Field(
+        description="Description d'ambiance sonore/foley en anglais. Finit obligatoirement par ', no melody, no music'."
+    )
+    real_media_queries: List[str] = Field(
+        description="""2 requêtes précises en anglais pour trouver des photos ou vidéos réelles d'archives de cette affaire historique spécifique.
 RÈGLES IMPÉRATIVES pour real_media_queries :
 - Chaque requête DOIT inclure le nom propre de l'affaire (ex: 'Enfield Poltergeist 1977', 'Janet Hodgson SPR investigation').
 - Préférer les termes documentaires : 'archival photo', 'historical photograph', 'real photo', 'documentary evidence', 'investigation photo'.
 - INTERDICTION ABSOLUE des termes génériques non liés à l'affaire : pas de 'ghost', 'haunted house', 'scary', 'dark room' sans le nom de l'affaire.
 - Viser des sources de qualité : Wikipedia, BBC, news archives, police records, SPR archives.
 - Ex valides : 'Janet Hodgson Enfield poltergeist 1977 real photo', 'Enfield house 284 Green Street historical photograph'.
-- Ex INVALIDES : 'dark hallway', 'mysterious ghost', 'scary bedroom'. Ces requêtes génèrent du contenu aléatoire et inapproprié.""")
+- Ex INVALIDES : 'dark hallway', 'mysterious ghost', 'scary bedroom'. Ces requêtes génèrent du contenu aléatoire et inapproprié."""
+    )
+
 
 class VideoScript(BaseModel):
-    projet: str = Field(description="Nom unique sans espace pour le projet (ex: Mystere_Dyatlov_Oural).")
+    projet: str = Field(
+        description="Nom unique sans espace pour le projet (ex: Mystere_Dyatlov_Oural)."
+    )
     niche: str = Field(description="Le sujet exact de la vidéo.")
-    visual_bible: List[VisualBibleEntry] = Field(description="Liste d'apparence des personnages, lieux et objets clés.")
-    scenes: List[Scene] = Field(description="Les 10 scènes du documentaire ordonnées chronologiquement.")
+    visual_bible: List[VisualBibleEntry] = Field(
+        description="Liste d'apparence des personnages, lieux et objets clés."
+    )
+    scenes: List[Scene] = Field(
+        description="Les 10 scènes du documentaire ordonnées chronologiquement."
+    )
+
 
 # ═══════════════════════════════════════════════════════════
 #  MEGA-PROMPT SYSTEME
@@ -282,6 +319,7 @@ SCÈNE 9 — LA QUESTION IRRÉSOLUE : le fait qui résiste encore.
 SCÈNE 10 — TRACE FINALE : une phrase courte et obsédante qui referme le dossier sans CTA générique.
 """
 
+
 # ═══════════════════════════════════════════════════════════
 #  RECHERCHE DYNAMIQUE DE SUJET
 # ═══════════════════════════════════════════════════════════
@@ -302,25 +340,31 @@ def _parse_json_block(text: str) -> Optional[list]:
     if start < 0 or end <= start:
         return None
     try:
-        return json.loads(text[start:end + 1])
+        return json.loads(text[start : end + 1])
     except json.JSONDecodeError:
         return None
 
 
-def discover_candidates(memory: dict, n_keywords: int = 3, n_per_keyword: int = 4) -> list[dict]:
+def discover_candidates(
+    memory: dict, n_keywords: int = 3, n_per_keyword: int = 4
+) -> list[dict]:
     """Étape 1 : recherche Google avec mots-clés variés → liste de candidats.
 
     Tire {n_keywords} requêtes différentes des templates, chacune renvoie
     jusqu'à {n_per_keyword} cas concrets. On accumule, on dédoublonne contre
     la mémoire, et on retourne tous les candidats restants.
     """
-    print(f"🔎 Découverte par mots-clés (mémoire : {len(memory['subjects'])} sujets déjà couverts)")
+    print(
+        f"🔎 Découverte par mots-clés (mémoire : {len(memory['subjects'])} sujets déjà couverts)"
+    )
     used_titles = [s.get("title", "") for s in memory["subjects"][-30:]]
     exclusion = "\n".join(f"- {t}" for t in used_titles) if used_titles else "(aucun)"
 
     all_candidates: list[dict] = []
 
-    queries_drawn = random.sample(SEARCH_TEMPLATES, min(n_keywords, len(SEARCH_TEMPLATES)))
+    queries_drawn = random.sample(
+        SEARCH_TEMPLATES, min(n_keywords, len(SEARCH_TEMPLATES))
+    )
     for query_tpl in queries_drawn:
         query = _instantiate_template(query_tpl)
         print(f"   🔑 Requête : '{query}'")
@@ -359,7 +403,7 @@ Return ONLY the JSON array. No explanation."""
 
         try:
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model="gemini-2.5-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     tools=[{"google_search": {}}],
@@ -368,7 +412,7 @@ Return ONLY the JSON array. No explanation."""
             )
             parsed = _parse_json_block(response.text or "")
             if not parsed:
-                print(f"      ⚠️ Réponse non parsable")
+                print("      ⚠️ Réponse non parsable")
                 continue
             for c in parsed:
                 if not isinstance(c, dict):
@@ -376,13 +420,17 @@ Return ONLY the JSON array. No explanation."""
                 title = (c.get("title") or "").strip()
                 if not title:
                     continue
-                kws = _extract_keywords(f"{title} {c.get('location','')} {c.get('year_or_period','')}")
+                kws = _extract_keywords(
+                    f"{title} {c.get('location', '')} {c.get('year_or_period', '')}"
+                )
                 if subject_already_used(kws, memory):
                     continue
                 c["_search_query"] = query
                 c["_keywords"] = kws
                 all_candidates.append(c)
-            print(f"      ✅ {len([c for c in parsed if isinstance(c, dict)])} candidats")
+            print(
+                f"      ✅ {len([c for c in parsed if isinstance(c, dict)])} candidats"
+            )
         except Exception as e:
             print(f"      ⚠️ Erreur de recherche : {e}")
             continue
@@ -408,14 +456,17 @@ class BriefPerson(BaseModel):
     name: str = ""
     role: str = ""
 
+
 class BriefEvent(BaseModel):
     when: str = ""
     what: str = ""
+
 
 class BriefSource(BaseModel):
     name: str = ""
     url: str = ""
     reliability: str = "unknown"
+
 
 # Tous les champs sont optionnels avec des défauts vides. Gemini est inconstant
 # avec le `google_search` tool — il peut omettre 1-2 champs même quand on est
@@ -453,7 +504,7 @@ CASE TO INVESTIGATE:
 - Title: {title}
 - Location: {location}
 - Year/Period: {year}
-- One-liner: {candidate.get('one_liner','')}
+- One-liner: {candidate.get("one_liner", "")}
 
 YOUR TASK:
 Search Google for this case and build a factual brief in FRENCH that strictly contains only verifiable facts from reputable sources (news outlets, police reports, court records, Wikipedia, academic publications).
@@ -502,7 +553,7 @@ Return ONLY the JSON object. Every field above must be present. Use empty arrays
     for attempt in range(2):
         try:
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model="gemini-2.5-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     tools=[{"google_search": {}}],
@@ -512,13 +563,15 @@ Return ONLY the JSON object. Every field above must be present. Use empty arrays
             raw = response.text or ""
             # Le tool google_search renvoie souvent un texte qui contient le JSON.
             # On extrait le bloc { ... }
-            raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip(), flags=re.MULTILINE)
+            raw = re.sub(
+                r"^```(?:json)?\s*|\s*```$", "", raw.strip(), flags=re.MULTILINE
+            )
             start = raw.find("{")
             end = raw.rfind("}")
             if start < 0 or end <= start:
                 print(f"      ⚠️ Pas de JSON dans la réponse (essai {attempt + 1})")
                 continue
-            data = json.loads(raw[start:end + 1])
+            data = json.loads(raw[start : end + 1])
             # Fallback : Gemini omet parfois title/year/location alors qu'ils
             # étaient déjà dans le candidat. On les remplit pour éviter le rejet.
             data.setdefault("title", title)
@@ -529,24 +582,33 @@ Return ONLY the JSON object. Every field above must be present. Use empty arrays
             brief = CaseBrief(**data)
             # Garde-fou : si Gemini signale "HOAX_OR_FICTION", on rejette.
             if "HOAX_OR_FICTION" in brief.summary:
-                print(f"      🚫 Cas rejeté : hoax / fiction selon la recherche")
+                print("      🚫 Cas rejeté : hoax / fiction selon la recherche")
                 return None
             # Vérifs qualité : un brief sans aucune source ou trop court n'est pas fiable.
             if len(brief.sources) < 2:
-                print(f"      ⚠️ Seulement {len(brief.sources)} source(s) — brief insuffisamment sourcé")
+                print(
+                    f"      ⚠️ Seulement {len(brief.sources)} source(s) — brief insuffisamment sourcé"
+                )
                 if attempt == 0:
                     continue
             if len(brief.summary) < 80:
-                print(f"      ⚠️ Résumé trop court ({len(brief.summary)} car.) — brief incomplet")
+                print(
+                    f"      ⚠️ Résumé trop court ({len(brief.summary)} car.) — brief incomplet"
+                )
                 if attempt == 0:
                     continue
-            print(f"      ✅ Brief vérifié : {len(brief.timeline)} événements, {len(brief.people)} personnes, "
-                  f"{len(brief.sources)} sources, {len(brief.uncertainty_flags)} flags d'incertitude")
+            print(
+                f"      ✅ Brief vérifié : {len(brief.timeline)} événements, {len(brief.people)} personnes, "
+                f"{len(brief.sources)} sources, {len(brief.uncertainty_flags)} flags d'incertitude"
+            )
             return brief
         except Exception as e:
-            print(f"      ⚠️ Erreur deep research (essai {attempt + 1}) : {str(e)[:120]}")
+            print(
+                f"      ⚠️ Erreur deep research (essai {attempt + 1}) : {str(e)[:120]}"
+            )
             time.sleep(2)
     return None
+
 
 # ═══════════════════════════════════════════════════════════
 #  GÉNÉRATION DU SCRIPT
@@ -566,8 +628,14 @@ def generer_script(niche: str, brief: Optional[CaseBrief] = None) -> dict:
         people_lines = "\n".join(f"  - {p.name} ({p.role})" for p in brief.people)
         timeline_lines = "\n".join(f"  - {e.when} : {e.what}" for e in brief.timeline)
         evidence_lines = "\n".join(f"  - {ev}" for ev in brief.evidence)
-        sources_lines = "\n".join(f"  - {s.name} [{s.reliability}] {s.url}" for s in brief.sources)
-        uncert_lines = "\n".join(f"  - {u}" for u in brief.uncertainty_flags) if brief.uncertainty_flags else "  (aucun — tout est bien sourcé)"
+        sources_lines = "\n".join(
+            f"  - {s.name} [{s.reliability}] {s.url}" for s in brief.sources
+        )
+        uncert_lines = (
+            "\n".join(f"  - {u}" for u in brief.uncertainty_flags)
+            if brief.uncertainty_flags
+            else "  (aucun — tout est bien sourcé)"
+        )
 
         brief_block = f"""
 
@@ -616,7 +684,7 @@ RÈGLES ANCRAGE FACTUEL :
         f"- Pas de texte visible dans l'image, pas de gore.\n"
         f"- Chaque lyria_prompt doit se terminer par ', no melody, no music'."
     )
-    
+
     STYLE_LOCK = (
         "[STYLE LOCK: Premium cinematic 3D low-poly art style, crisp faceted polygon geometry, "
         "physically based materials, portrait 9:16, sharp subject detail, harsh chiaroscuro shadows, "
@@ -627,7 +695,7 @@ RÈGLES ANCRAGE FACTUEL :
         try:
             print(f"   🧠 Gemini génère le script structuré (Essai {attempt + 1}/3)...")
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model="gemini-2.5-flash",
                 contents=prompt_utilisateur,
                 config=types.GenerateContentConfig(
                     system_instruction=MEGA_PROMPT_SYSTEM,
@@ -635,11 +703,11 @@ RÈGLES ANCRAGE FACTUEL :
                     max_output_tokens=8192,
                     response_mime_type="application/json",
                     response_schema=VideoScript,
-                )
+                ),
             )
-            
+
             script_data = json.loads(response.text)
-            
+
             # Conversion de visual_bible de List[VisualBibleEntry] en Dict[str, str] pour compatibilité
             visual_bible_list = script_data.get("visual_bible", [])
             visual_bible_dict = {}
@@ -665,20 +733,25 @@ RÈGLES ANCRAGE FACTUEL :
                     if "[STYLE LOCK" not in veo:
                         scene["veo_prompt"] = f"{veo} {STYLE_LOCK}"
                 else:
-                    scene["veo_prompt"] = f"Dark portrait cinematic reconstruction. Slow dolly zoom in. {STYLE_LOCK}"
-                
+                    scene["veo_prompt"] = (
+                        f"Dark portrait cinematic reconstruction. Slow dolly zoom in. {STYLE_LOCK}"
+                    )
+
                 # Forcer le format sonore Lyria
                 lyria = scene.get("lyria_prompt", "").strip()
                 if not lyria:
-                    scene["lyria_prompt"] = "Low ominous sub-bass drone, creaking silence, no melody, no music"
+                    scene["lyria_prompt"] = (
+                        "Low ominous sub-bass drone, creaking silence, no melody, no music"
+                    )
                 elif not lyria.endswith(", no melody, no music"):
                     scene["lyria_prompt"] = f"{lyria.rstrip(',.')}, no melody, no music"
-            
+
             return script_data
         except Exception as e:
             print(f"   ⚠️ Erreur génération/parsing (essai {attempt + 1}) : {e}")
-            import time; time.sleep(3)
+            time.sleep(3)
     return None
+
 
 # ═══════════════════════════════════════════════════════════
 #  CRÉATION DU DOSSIER PROJET
@@ -714,9 +787,12 @@ def creer_projet(niche: str = None) -> str:
         candidates = discover_candidates(memory)
         if not candidates:
             # Fallback : random parmi NICHES_HORREUR jamais utilisées
-            print("   ⚠️ Aucun candidat trouvé via recherche, fallback sur banque locale")
+            print(
+                "   ⚠️ Aucun candidat trouvé via recherche, fallback sur banque locale"
+            )
             available = [
-                n for n in NICHES_HORREUR
+                n
+                for n in NICHES_HORREUR
                 if not subject_already_used(_extract_keywords(n), memory)
             ]
             if not available:
@@ -731,7 +807,9 @@ def creer_projet(niche: str = None) -> str:
         else:
             # On essaie chaque candidat dans l'ordre jusqu'à un deep research réussi.
             for cand in candidates:
-                print(f"\n🎯 Candidat tenté : {cand['title']} ({cand.get('location','?')}, {cand.get('year_or_period','?')})")
+                print(
+                    f"\n🎯 Candidat tenté : {cand['title']} ({cand.get('location', '?')}, {cand.get('year_or_period', '?')})"
+                )
                 b = deep_research(cand)
                 if b is not None:
                     chosen_candidate = cand
@@ -739,13 +817,16 @@ def creer_projet(niche: str = None) -> str:
                     niche = b.title  # canonical title from the verified brief
                     break
                 else:
-                    print(f"      ↪️  Cas non vérifié, on passe au suivant")
+                    print("      ↪️  Cas non vérifié, on passe au suivant")
 
             if brief is None:
                 # Tous les deep research ont échoué : fallback ultime
                 print("   ⚠️ Aucun candidat vérifiable, fallback sur banque locale")
-                available = [n for n in NICHES_HORREUR
-                             if not subject_already_used(_extract_keywords(n), memory)]
+                available = [
+                    n
+                    for n in NICHES_HORREUR
+                    if not subject_already_used(_extract_keywords(n), memory)
+                ]
                 if not available:
                     available = NICHES_HORREUR
                 niche = random.choice(available)
@@ -755,22 +836,24 @@ def creer_projet(niche: str = None) -> str:
     if brief is None and chosen_candidate:
         brief = deep_research(chosen_candidate)
         if brief is None:
-            print("   ⚠️ Deep research échouée — script sera généré sans brief (mode dégradé)")
-            
+            print(
+                "   ⚠️ Deep research échouée — script sera généré sans brief (mode dégradé)"
+            )
+
     # Nettoyage du nom de projet
-    mots = re.sub(r'[^\w\s]', '', niche).split()[:5]
-    nom_base = '_'.join(w.capitalize() for w in mots)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    mots = re.sub(r"[^\w\s]", "", niche).split()[:5]
+    nom_base = "_".join(w.capitalize() for w in mots)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     nom_projet = f"{timestamp}_{nom_base}"
     dossier = f"projets/{nom_projet}"
-    
+
     os.makedirs(dossier, exist_ok=True)
     os.makedirs(f"{dossier}/audio", exist_ok=True)
     os.makedirs(f"{dossier}/audio/sfx", exist_ok=True)
 
-    print(f"\n{'═'*55}")
+    print(f"\n{'═' * 55}")
     print(f"  🎬 NOUVEAU PROJET : {nom_projet}")
-    print(f"{'═'*55}")
+    print(f"{'═' * 55}")
     print(f"  📖 Sujet : {niche[:80]}...")
 
     # Sauvegarde du brief (audit + traçabilité) AVANT la génération.
@@ -779,8 +862,10 @@ def creer_projet(niche: str = None) -> str:
     if brief is not None:
         with open(f"{dossier}/brief.json", "w", encoding="utf-8") as f:
             json.dump(brief.model_dump(), f, indent=2, ensure_ascii=False)
-        print(f"  📋 Brief sauvegardé ({len(brief.sources)} sources, "
-              f"{len(brief.uncertainty_flags)} flags) → {dossier}/brief.json")
+        print(
+            f"  📋 Brief sauvegardé ({len(brief.sources)} sources, "
+            f"{len(brief.uncertainty_flags)} flags) → {dossier}/brief.json"
+        )
 
     script_data = generer_script(niche, brief=brief)
     if not script_data:
@@ -795,11 +880,13 @@ def creer_projet(niche: str = None) -> str:
     print(f"   ✅ {len(scenes)} scènes générées avec succès.")
 
     for s in scenes:
-        veo_ok = bool(s.get('veo_prompt'))
-        lyria_ok = 'no melody' in s.get('lyria_prompt', '').lower()
-        audio_ok = bool(s.get('audio_tts'))
-        status = '✅' if (veo_ok and lyria_ok and audio_ok) else '⚠️'
-        print(f"   {status} Scène {s.get('id')} — VEO: {'✓' if veo_ok else '✗'} | LYRIA: {'✓' if lyria_ok else '✗'} | TTS: {'✓' if audio_ok else '✗'}")
+        veo_ok = bool(s.get("veo_prompt"))
+        lyria_ok = "no melody" in s.get("lyria_prompt", "").lower()
+        audio_ok = bool(s.get("audio_tts"))
+        status = "✅" if (veo_ok and lyria_ok and audio_ok) else "⚠️"
+        print(
+            f"   {status} Scène {s.get('id')} — VEO: {'✓' if veo_ok else '✗'} | LYRIA: {'✓' if lyria_ok else '✗'} | TTS: {'✓' if audio_ok else '✗'}"
+        )
 
     # Aliases de compatibilité ascendante pour les autres scripts du pipeline
     for s in scenes:
@@ -832,8 +919,10 @@ def creer_projet(niche: str = None) -> str:
     print(f"📁 Projet : {dossier}")
     return dossier
 
+
 if __name__ == "__main__":
     import argparse
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--sujet", help="Sujet précis (sinon recherche en ligne ou random)")
     args = ap.parse_args()

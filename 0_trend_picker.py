@@ -259,7 +259,7 @@ def afficher_suggestions(suggestions: list[dict]) -> Optional[int]:
         print(f'      💭 "{s.get("question_universelle", "")}"')
         print(f"      📍 {s.get('ancrage', '')}")
 
-    print(f"\n  [0] Aucune — saisir ma propre prémisse")
+    print("\n  [0] Aucune — saisir ma propre prémisse")
     try:
         choix = int(input("\n👉 Ton choix > ").strip())
         if 1 <= choix <= len(suggestions):

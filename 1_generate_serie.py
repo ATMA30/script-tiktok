@@ -856,7 +856,7 @@ def generer_synopsis(
     _save_serie(serie_dir, serie)
     afficher_synopsis(serie)
     print(f"\n💾 Synopsis sauvegardé → {serie_dir}/serie.json")
-    print(f"⏸️  STATUT : synopsis_pending_validation")
+    print("⏸️  STATUT : synopsis_pending_validation")
     print(f"   → Valide avec :  python 1_generate_serie.py valider --serie {serie_dir}")
     return serie_dir
 
@@ -923,7 +923,7 @@ def generer_episode(serie_dir: Path, numero: int) -> Optional[str]:
     traits_block = ""
     if traits_episode:
         traits_block = (
-            f"\nTRAITS À RÉVÉLER DANS CET ÉPISODE (planter naturellement, ne jamais annoncer) :\n"
+            "\nTRAITS À RÉVÉLER DANS CET ÉPISODE (planter naturellement, ne jamais annoncer) :\n"
             + "\n".join(f"  - {t}" for t in traits_episode)
         )
 
@@ -1032,7 +1032,7 @@ STYLE LOCK à coller en fin de chaque veo_prompt :
             f"   → Une fois validé :  python 1_generate_serie.py episode {suivant} --serie {serie_dir}"
         )
     else:
-        print(f"   → Dernier épisode de la série. 🎉")
+        print("   → Dernier épisode de la série. 🎉")
     return str(dossier)
 
 
@@ -1070,7 +1070,7 @@ def afficher_synopsis(serie: dict):
                     f"      Humanité  : ep.{p.get('episode_humanite', '?')} — {p.get('moment_humanite', '')[:80]}"
                 )
 
-    print(f"\n  🎬 Épisodes :")
+    print("\n  🎬 Épisodes :")
     total = serie.get("n_episodes", len(serie.get("episodes", [])))
     for ep in serie.get("episodes", []):
         traits = ep.get("traits_a_revealer", [])

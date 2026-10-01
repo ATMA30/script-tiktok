@@ -28,9 +28,7 @@ or gradient fills (`gf`/`gs`), the script attempts to handle them as well.
 """
 
 import json
-import os
 import re
-import sys
 from pathlib import Path
 from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
@@ -51,17 +49,22 @@ def slugify(s: str) -> str:
 
 
 def download_json(url: str) -> dict:
-    req = Request(url, headers={
-        "User-Agent": "Mozilla/5.0 script-tiktok lottie-curate",
-        "Accept": "application/json,*/*;q=0.5",
-    })
+    req = Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0 script-tiktok lottie-curate",
+            "Accept": "application/json,*/*;q=0.5",
+        },
+    )
     with urlopen(req, timeout=20) as resp:
         body = resp.read()
     try:
         return json.loads(body)
     except json.JSONDecodeError as e:
         head = body[:200].decode("utf-8", errors="replace")
-        raise RuntimeError(f"Not JSON ({len(body)} bytes). First chars: {head!r}") from e
+        raise RuntimeError(
+            f"Not JSON ({len(body)} bytes). First chars: {head!r}"
+        ) from e
 
 
 def _is_color_array(v) -> bool:
@@ -166,7 +169,7 @@ def process_source(src: dict, manifest: dict, dry_run: bool = False) -> bool:
 
     out_path = LIB / f"{aid}.json"
     if out_path.exists() and not src.get("force", False):
-        print(f"  ⏭️  {aid:24s} → already in library (set \"force\": true to refresh)")
+        print(f'  ⏭️  {aid:24s} → already in library (set "force": true to refresh)')
         upsert_manifest_entry(manifest, _entry_from_source(src, aid, out_path))
         return True
 
@@ -179,7 +182,9 @@ def process_source(src: dict, manifest: dict, dry_run: bool = False) -> bool:
 
     # Quick sanity check: Bodymovin JSON has top-level `v` (version) and `layers`.
     if not isinstance(data, dict) or "v" not in data or "layers" not in data:
-        print(f"     ❌ Not a Bodymovin Lottie JSON (keys: {list(data.keys())[:5] if isinstance(data, dict) else type(data).__name__})")
+        print(
+            f"     ❌ Not a Bodymovin Lottie JSON (keys: {list(data.keys())[:5] if isinstance(data, dict) else type(data).__name__})"
+        )
         return False
 
     # Optional monochrome flatten
@@ -187,7 +192,9 @@ def process_source(src: dict, manifest: dict, dry_run: bool = False) -> bool:
     if mono_strength in ("full", True):
         target = tuple(src.get("mono_target", DEFAULT_MONO))
         n_changed = flatten_to_mono(data, target)
-        print(f"     🎨 Monochrome flatten → {n_changed} color slots rewritten ({target})")
+        print(
+            f"     🎨 Monochrome flatten → {n_changed} color slots rewritten ({target})"
+        )
 
     data = normalize_lottie(data)
 
@@ -223,33 +230,44 @@ def _entry_from_source(src: dict, aid: str, file_path: Path) -> dict:
 def main():
     if not SOURCES.exists():
         # Bootstrap with a documented empty config the first time.
-        SOURCES.write_text(json.dumps({
-            "_doc": (
-                "Each entry: {url, id, tags, description, natural_duration_s, "
-                "looping, default_blend, default_opacity, monochrome ('full'|"
-                "'partial'|'off'), mono_target [r,g,b], force (bool to refresh)}."
+        SOURCES.write_text(
+            json.dumps(
+                {
+                    "_doc": (
+                        "Each entry: {url, id, tags, description, natural_duration_s, "
+                        "looping, default_blend, default_opacity, monochrome ('full'|"
+                        "'partial'|'off'), mono_target [r,g,b], force (bool to refresh)}."
+                    ),
+                    "_example": {
+                        "url": "https://lottie.host/UUID/name.json",
+                        "id": "evidence_pin",
+                        "tags": ["evidence", "pin", "investigation"],
+                        "description": "Red string pinned across an evidence board.",
+                        "natural_duration_s": 2.4,
+                        "looping": False,
+                        "default_blend": "normal",
+                        "default_opacity": 0.95,
+                        "monochrome": "full",
+                    },
+                    "sources": [],
+                },
+                indent=2,
+                ensure_ascii=False,
             ),
-            "_example": {
-                "url": "https://lottie.host/UUID/name.json",
-                "id": "evidence_pin",
-                "tags": ["evidence", "pin", "investigation"],
-                "description": "Red string pinned across an evidence board.",
-                "natural_duration_s": 2.4,
-                "looping": False,
-                "default_blend": "normal",
-                "default_opacity": 0.95,
-                "monochrome": "full"
-            },
-            "sources": []
-        }, indent=2, ensure_ascii=False), encoding="utf-8")
+            encoding="utf-8",
+        )
         print(f"📝 Created {SOURCES.name} — add entries under 'sources' and rerun.")
         return
 
     cfg = json.loads(SOURCES.read_text(encoding="utf-8"))
     sources = cfg.get("sources", [])
     if not sources:
-        print(f"ℹ️  No sources configured in {SOURCES.name}. Add some entries under 'sources'.")
-        print(f"   See README.md for how to find URLs (LottieFiles MCP, Lottie Host, etc.).")
+        print(
+            f"ℹ️  No sources configured in {SOURCES.name}. Add some entries under 'sources'."
+        )
+        print(
+            "   See README.md for how to find URLs (LottieFiles MCP, Lottie Host, etc.)."
+        )
         return
 
     LIB.mkdir(parents=True, exist_ok=True)
@@ -261,7 +279,9 @@ def main():
             ok += 1
 
     save_manifest(manifest)
-    print(f"\n✅ Curated {ok}/{len(sources)} sources. Manifest now has {len(manifest['assets'])} assets.")
+    print(
+        f"\n✅ Curated {ok}/{len(sources)} sources. Manifest now has {len(manifest['assets'])} assets."
+    )
 
 
 if __name__ == "__main__":

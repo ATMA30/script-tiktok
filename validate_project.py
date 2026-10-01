@@ -6,9 +6,9 @@ Usage:
   python validate_project.py projets/mon_projet
   python validate_project.py --strict projets/mon_projet
 """
+
 import argparse
 import json
-import os
 from pathlib import Path
 
 from utils import trouver_dernier_projet
@@ -31,7 +31,8 @@ def _media_for(project_dir: Path, scene_id: int) -> list[Path]:
     ):
         if folder.is_dir():
             media.extend(
-                p for p in folder.iterdir()
+                p
+                for p in folder.iterdir()
                 if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".mp4"}
             )
     return sorted(media)
@@ -101,7 +102,9 @@ def _report(project_dir: Path, errors: list[str], warnings: list[str]) -> int:
         print(f"  ERROR {error}")
 
     if errors:
-        print(f"\nResultat: ECHEC ({len(errors)} erreur(s), {len(warnings)} avertissement(s))")
+        print(
+            f"\nResultat: ECHEC ({len(errors)} erreur(s), {len(warnings)} avertissement(s))"
+        )
         return 1
 
     print(f"\nResultat: OK ({len(warnings)} avertissement(s))")

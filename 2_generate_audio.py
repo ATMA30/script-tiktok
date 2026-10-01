@@ -346,12 +346,12 @@ def generer_audio_gemini(texte: str, chemin_sortie: str) -> bool:
                 print(f"   ✨ Gemini TTS ✅ : {os.path.basename(chemin_sortie)}")
                 return True
             else:
-                print(f"   ⚠️ Fichier audio trop petit — retry")
+                print("   ⚠️ Fichier audio trop petit — retry")
 
         except Exception as e:
             msg = str(e)
             if "429" in msg or "quota" in msg.lower():
-                print(f"   ⚠️ Quota Gemini TTS atteint → fallback Edge-TTS")
+                print("   ⚠️ Quota Gemini TTS atteint → fallback Edge-TTS")
                 return False
             print(f"   ⚠️ Gemini TTS erreur (essai {attempt + 1}) : {msg[:120]}")
             import time
@@ -388,10 +388,11 @@ async def generer_audio_edge(texte: str, chemin_sortie: str):
             else:
                 print(f"   ❌ Edge-TTS échoué définitivement : {e}")
                 # Crée un silence de 3s pour débloquer le pipeline
-                import numpy as np, soundfile as sf
+                import numpy as np
+                import soundfile as sf
 
                 sf.write(chemin_sortie, np.zeros(24000 * 3), 24000)
-                print(f"   ⚠️ Silence artificiel créé (3s)")
+                print("   ⚠️ Silence artificiel créé (3s)")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -426,7 +427,7 @@ async def _traiter_scene(
             appliquer_tempo_wav(chemin_audio)
             normaliser_audio_wav(chemin_audio)
             return
-        print(f"   🔄 Fallback Edge-TTS...")
+        print("   🔄 Fallback Edge-TTS...")
         await generer_audio_edge(texte_source, chemin_audio)
         enlever_silences_wav(chemin_audio)
         appliquer_tempo_wav(chemin_audio)

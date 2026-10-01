@@ -403,7 +403,13 @@ def build_animation():
                 group(
                     [
                         path(
-                            [[-46, -116], [-56, -172], [0, -214], [56, -172], [46, -116]],
+                            [
+                                [-46, -116],
+                                [-56, -172],
+                                [0, -214],
+                                [56, -172],
+                                [46, -116],
+                            ],
                             [[0, 0], [-6, 18], [-24, 0], [-6, -18], [0, 0]],
                             [[6, -18], [24, 0], [24, 0], [6, 18], [0, 0]],
                         ),
@@ -613,9 +619,7 @@ def update_manifest(size_kb):
         "source_url": "https://github.com/diffusionstudio/lottie",
     }
     assets = [
-        item
-        for item in manifest.get("assets", [])
-        if item.get("id") != asset["id"]
+        item for item in manifest.get("assets", []) if item.get("id") != asset["id"]
     ]
     assets.append(asset)
     manifest["assets"] = assets

@@ -650,13 +650,24 @@ Return ONLY the JSON object. Every field above must be present. Use empty arrays
             print(
                 f"      ⚠️ Erreur deep research (essai {attempt + 1}) : {str(e)[:120]}"
             )
-            time.sleep(2)
+            if attempt == 0:
+                time.sleep(_attente_avant_reessai(e, attempt))
     return None
 
 
 # ═══════════════════════════════════════════════════════════
 #  GÉNÉRATION DU SCRIPT
 # ═══════════════════════════════════════════════════════════
+def _attente_avant_reessai(erreur: Exception, essai: int) -> float:
+    """Secondes d'attente avant un nouvel essai : longue si Gemini est saturé (503/429)."""
+    texte = str(erreur)
+    if any(
+        code in texte for code in ("503", "429", "UNAVAILABLE", "RESOURCE_EXHAUSTED")
+    ):
+        return 20.0 * (essai + 1)
+    return 3.0
+
+
 def generer_script(niche: str, brief: CaseBrief) -> Optional[dict]:
     """Appelle Gemini avec le Mega-Prompt et retourne le dictionnaire du script.
 
@@ -766,10 +777,17 @@ RÈGLES ANCRAGE FACTUEL :
         except Exception as e:
             print(f"   ⚠️ Erreur génération/parsing (essai {attempt + 1}) : {e}")
             if attempt < 2:
-                time.sleep(3)
+                time.sleep(_attente_avant_reessai(e, attempt))
             continue
 
-        violations = verifier_script(script_data, a_taire)
+        try:
+            violations = verifier_script(script_data, a_taire)
+        except Exception as e:
+            # Contrôle impossible = script refusé (jamais d'acceptation par défaut)
+            print(
+                f"   ⚠️ Contrôle des garde-fous impossible (essai {attempt + 1}) : {e}"
+            )
+            continue
         if violations:
             print("   🚫 Garde-fous juridiques : script rejeté")
             for v in violations:

@@ -123,6 +123,8 @@ def test_verifier_script_nom_complet_nom_seul_prenom_de_mineur():
         {"projet": "Affaire_Jean_Dufour"},
         {"visual_bible": {"Jean Dufour": "tall man, grey coat"}},
         {"visual_bible": {"suspect": "Dufour, tall man"}},
+        # Forme brute renvoyée par Gemini (avant conversion en dict)
+        {"visual_bible": [{"name": "Jean Dufour", "description": "tall man"}]},
     ],
 )
 def test_verifier_script_couvre_tous_les_champs(champs):

@@ -122,7 +122,18 @@ def textes_du_script(script):
         ("titre", script.get("niche", "")),
         ("nom du projet", (script.get("projet") or "").replace("_", " ")),
     ]
-    for cle, valeur in (script.get("visual_bible") or {}).items():
+    bible = script.get("visual_bible") or {}
+    # Réponse brute de Gemini : liste de {name, description} ; script final : dict.
+    entrees = (
+        bible.items()
+        if isinstance(bible, dict)
+        else (
+            (e.get("name", ""), e.get("description", ""))
+            for e in bible
+            if isinstance(e, dict)
+        )
+    )
+    for cle, valeur in entrees:
         textes.append(("bible visuelle", f"{cle} {valeur}"))
     for i, scene in enumerate(script.get("scenes", []), 1):
         lieu = f"scène {scene.get('id', i)}"

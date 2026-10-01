@@ -29,11 +29,11 @@ assets/lottie/
 1. **Manifest** — each `.json` in `library/` has a matching entry in
    `manifest.json` with `id`, `tags`, `default_blend`, `default_opacity`,
    `natural_duration_s`, `looping`, `description`.
-2. **Director Agent** (in `3_render_hyperframes.py`) receives the catalog in
+2. **Director Agent** (in `usine/render/director.py`) receives the catalog in
    its prompt and may emit a `lottie_overlays` array per scene: `asset_id`,
    `in_time` (scene-relative), `duration`, `x/y/width/height_pct`, `opacity`,
    `monochrome`, `reason`.
-3. **Renderer** (`lottie_overlay.py`) clamps the spec, emits a
+3. **Renderer** (`usine/render/lottie.py`) clamps the spec, emits a
    `<dotlottie-wc>` element + GSAP tweens that drive `setFrame()` on every
    `onUpdate` for frame-accurate playback under headless Chrome capture.
 4. **HyperFrames** captures the page frame by frame; the entire Lottie playhead
@@ -104,7 +104,7 @@ Repo: <https://github.com/junmer/mcp-server-lottiefiles>
 
 ## Tuning
 
-Per-render env vars (all in `3_render_hyperframes.py`):
+Per-render env vars (all in `usine/render/config.py`):
 - `USE_DIRECTOR_AGENT=0` — skip Gemini, also skips Lottie overlay choice.
 - `USE_DIRECTOR_AGENT=1` (default with `GEMINI_API_KEY`) — Director picks
   0-3 overlays per scene from the manifest.
@@ -122,7 +122,7 @@ curl -LO "https://cdn.jsdelivr.net/npm/@lottiefiles/dotlottie-web@<wasm_ver>/dis
 rm -rf package *.tgz
 ```
 
-Then update the imported chunk name inside `lottie_overlay.lottie_head_html()`
+Then update the imported chunk name inside `usine/render/lottie.py` → `lottie_head_html()`
 (the `dist-XXX.js` filename hash changes between versions).
 
 ## Known limits

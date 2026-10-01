@@ -1,3 +1,15 @@
+"""Cerveau true crime / faits divers : choisit une affaire, la documente, écrit le script.
+
+1. Découverte d'affaires réelles via Gemini + recherche Google (ou sujet imposé).
+2. Brief factuel sourcé (au moins 2 sources, statut judiciaire, rôles des personnes).
+3. Script en 10 scènes ancré sur le brief, contrôlé par usine.garde_fous
+   (présomption d'innocence, aucun mineur nommé).
+4. Projet créé avec le statut « a_valider » : 0_usine.py le soumet à validation
+   humaine avant tout rendu.
+
+Usage : python 1_generate_brain.py [--sujet "L'affaire …"]
+"""
+
 import os
 import json
 import re
@@ -10,6 +22,14 @@ from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 from typing import List, Optional
+
+from usine.garde_fous import (
+    brief_suffisant,
+    nettoyer_requetes,
+    personnes_a_taire,
+    verifier_script,
+)
+from usine.projet import A_VALIDER
 
 load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -114,37 +134,32 @@ def subject_already_used(candidate_keywords: list[str], memory: dict) -> bool:
 
 
 # ═══════════════════════════════════════════════════════════
-#  BANQUE DE MOTS-CLÉS DE RECHERCHE
+#  BANQUE DE MOTS-CLÉS DE RECHERCHE — TRUE CRIME & FAITS DIVERS
 #  Mots-clés LARGES, en français et en anglais. On laisse Google +
-#  Gemini trouver ce qu'ils veulent dans la longue traîne plutôt que
-#  de forcer "Indonesia 1987 forest" — trop spécifique → Gemini retombe
-#  sur les classiques (Dyatlov, Roswell, Enfield…) parce qu'il n'a rien
-#  d'autre qui matche pile les contraintes.
+#  Gemini trouver la longue traîne plutôt que de retomber sur les
+#  classiques saturés (Zodiac, Dahlia noir, Grégory…).
 # ═══════════════════════════════════════════════════════════
 SEARCH_TEMPLATES = [
-    # Français — identité paranormal documenté
-    "enquête paranormale documentée",
-    "disparition collective inexpliquée documentée",
-    "mystère maritime équipage disparu",
-    "maison hantée enquête historique",
-    "apparition fantôme témoins multiples",
-    "créature inconnue rapports officiels",
-    "lieu inexpliqué phénomène scientifique",
-    "hantise enquête police",
-    "phénomène paranormal archives militaires",
-    "île abandonnée disparition mystérieuse",
-    "phare disparition inexpliquée",
-    # Anglais — documenté et paranormal
-    "paranormal documented case",
-    "documented ghost investigation historical",
-    "unexplained maritime disappearance records",
-    "mysterious island disappearance documented",
-    "cryptid official witness reports",
-    "documented haunting investigation",
-    "strange unexplained event witnesses",
-    "police paranormal report",
-    "declassified strange phenomenon",
-    "unexplained place scientific investigation",
+    # Faits divers français et francophones
+    "fait divers criminel non élucidé France",
+    "affaire criminelle jugée cour d'assises",
+    "disparition inquiétante jamais résolue gendarmerie",
+    "cold case rouvert pôle crimes sériels Nanterre",
+    "affaire criminelle historique France XIXe siècle",
+    "enquête criminelle résolue grâce à l'ADN France",
+    "fait divers étrange village français enquête",
+    "affaire criminelle Belgique Suisse Québec procès",
+    "casse célèbre France enquête police",
+    "escroquerie célèbre procès France",
+    # True crime international
+    "solved cold case DNA genealogy conviction",
+    "unsolved murder case police investigation",
+    "famous heist investigation trial",
+    "historical criminal case trial archives",
+    "unsolved disappearance police case",
+    "true crime case Japan Korea court ruling",
+    "true crime case Latin America investigation trial",
+    "forensic breakthrough solved murder case",
 ]
 
 
@@ -155,51 +170,30 @@ def _instantiate_template(tpl: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════
-#  NICHES TRUE CRIME / PARANORMAL FALLBACKS
-#  Banque élargie de cas documentés. Le pipeline pioche dedans
-#  uniquement si la recherche en ligne échoue, en évitant tout
-#  sujet déjà utilisé dans un projet précédent (voir derive_used_niches).
+#  AFFAIRES DE SECOURS
+#  Affaires réelles, documentées, jugées définitivement ou jamais
+#  élucidées sans mis en cause nommé. Le pipeline n'y pioche que si la
+#  recherche en ligne échoue, en évitant les sujets déjà traités.
 # ═══════════════════════════════════════════════════════════
-NICHES_HORREUR = [
-    # Disparitions inexpliquées
-    "La disparition mystérieuse de Lars Mittank à l'aéroport de Varna en 2014.",
-    "La disparition de Brian Shaffer devant les caméras de surveillance d'un bar à Columbus.",
-    "La disparition inexplicable du pilote Frederick Valentich en 1978 en Australie.",
-    "L'affaire des cinq de Yuba en 1978, cinq amis disparus dans la forêt de Plumas.",
-    "La disparition de Maura Murray en 2004 sur une route de campagne du New Hampshire.",
-    "La disparition d'Asha Degree à 9 ans en Caroline du Nord en 2000.",
-    "Le mystère du vol Malaysia Airlines 370 disparu en mars 2014.",
-    "La disparition des sœurs Sodder dans l'incendie de Noël 1945.",
-    "La disparition de Madeleine McCann en 2007 au Portugal.",
-    "L'affaire Springfield Three, trois femmes évaporées en 1992 au Missouri.",
-    # Affaires criminelles non résolues
-    "Le tueur du Zodiac et ses lettres cryptées à la presse de San Francisco.",
-    "L'affaire du Black Dahlia, le meurtre d'Elizabeth Short en 1947 à Los Angeles.",
-    "Les meurtres du Texarkana Moonlight en 1946.",
-    "L'affaire Hinterkaifeck, la ferme bavaroise massacrée en 1922.",
-    "Le tueur en série du Long Island, identifié en 2023 après quinze ans.",
-    "L'affaire Tylenol Murders, sept morts par capsules empoisonnées en 1982.",
-    # Mystères paranormaux / pseudo-paranormaux historiques
-    "L'affaire des randonneurs du col Dyatlov en 1959 dans l'Oural.",
-    "Le mystère du SS Ourang Medan, le cargo retrouvé avec un équipage figé dans l'effroi.",
-    "L'exorcisme réel de Roland Doe en 1949 qui a inspiré l'Exorciste.",
-    "L'incident du Silver Bridge et les apparitions du Mothman en 1966.",
-    "Le mystère de la station fantôme UVB-76 qui émet depuis 1976.",
-    "L'affaire de l'homme de Somerton (Tamam Shud) en Australie.",
-    "Le poltergeist d'Enfield en Angleterre dans les années 1970.",
-    "L'incident de Rendlesham Forest en 1980, le Roswell britannique.",
-    "Le hum de Taos, le bourdonnement entendu par 2 % de la ville.",
-    "L'affaire du Mary Celeste, le navire retrouvé à la dérive en 1872.",
-    "La nuit d'horreur d'Aurora, le cas Travis Walton enlevé en 1975.",
-    "Les apparitions de Doris Bither, l'affaire The Entity en 1974.",
-    "L'incident de Roswell en 1947 et le débris du Ranch Foster.",
-    # Mystères / phénomènes inexpliqués
-    "Le projet MK-Ultra, les expériences de contrôle mental de la CIA.",
-    "L'incident de Tunguska en 1908, l'explosion mystérieuse de la taïga sibérienne.",
-    "Les voyageurs du temps présumés, John Titor et Andrew Carlssin.",
-    "Le code mystérieux du manuscrit Voynich, jamais déchiffré.",
-    "La porte de l'Enfer du Turkménistan, le cratère qui brûle depuis 1971.",
-    "Le mystère du Bermuda Triangle et la disparition du vol 19 en 1945.",
+AFFAIRES_SECOURS = [
+    # France
+    "L'affaire Landru, le « Barbe-Bleue de Gambais », condamné en 1921.",
+    "L'affaire Seznec et la disparition du conseiller Pierre Quéméneur en 1923.",
+    "Le casse de la Société générale de Nice en 1976, le « casse du siècle ».",
+    "La bande à Bonnot et la première attaque à l'automobile en 1911.",
+    "L'affaire du Courrier de Lyon, l'attaque de la malle-poste en 1796.",
+    "L'affaire Guy Georges, le tueur de l'Est parisien condamné en 2001.",
+    "Les disparues de l'Yonne et la condamnation d'Émile Louis en 2004.",
+    "La tuerie de Chevaline en 2012, jamais élucidée.",
+    "Le vol de la Joconde au Louvre en 1911.",
+    "Le gang des postiches et ses braquages de banques parisiennes dans les années 1980.",
+    # International
+    "Le Golden State Killer, identifié par la généalogie ADN et condamné en 2020.",
+    "Le casse du centre diamantaire d'Anvers en 2003.",
+    "Les empoisonnements au Tylenol à Chicago en 1982, jamais élucidés.",
+    "Le massacre de la ferme d'Hinterkaifeck en Bavière en 1922, jamais résolu.",
+    "Les meurtres du Texarkana Moonlight en 1946, jamais résolus.",
+    "Le tueur de la Green River, condamné en 2003 après vingt ans d'enquête.",
 ]
 
 
@@ -228,18 +222,19 @@ class Scene(BaseModel):
     real_media_queries: List[str] = Field(
         description="""2 requêtes précises en anglais pour trouver des photos ou vidéos réelles d'archives de cette affaire historique spécifique.
 RÈGLES IMPÉRATIVES pour real_media_queries :
-- Chaque requête DOIT inclure le nom propre de l'affaire (ex: 'Enfield Poltergeist 1977', 'Janet Hodgson SPR investigation').
-- Préférer les termes documentaires : 'archival photo', 'historical photograph', 'real photo', 'documentary evidence', 'investigation photo'.
-- INTERDICTION ABSOLUE des termes génériques non liés à l'affaire : pas de 'ghost', 'haunted house', 'scary', 'dark room' sans le nom de l'affaire.
-- Viser des sources de qualité : Wikipedia, BBC, news archives, police records, SPR archives.
-- Ex valides : 'Janet Hodgson Enfield poltergeist 1977 real photo', 'Enfield house 284 Green Street historical photograph'.
-- Ex INVALIDES : 'dark hallway', 'mysterious ghost', 'scary bedroom'. Ces requêtes génèrent du contenu aléatoire et inapproprié."""
+- Chaque requête DOIT inclure le nom de l'affaire ou du lieu (ex: 'Landru trial 1921', 'Gambais villa Landru').
+- Préférer les termes documentaires : 'archival photo', 'historical photograph', 'press photo', 'trial photo', 'crime scene location'.
+- JAMAIS le nom d'un mineur ni d'une personne non condamnée définitivement : vise le lieu, le procès, l'objet ou l'enquête.
+- INTERDICTION ABSOLUE des termes génériques non liés à l'affaire : pas de 'crime', 'murder', 'dark room' seuls.
+- Viser des sources de qualité : Wikipedia, presse, archives judiciaires et policières.
+- Ex valides : 'Landru trial Versailles 1921 press photo', 'Gambais villa Landru historical photograph'.
+- Ex INVALIDES : 'dark hallway', 'murder scene', 'scary bedroom'. Ces requêtes génèrent du contenu aléatoire et inapproprié."""
     )
 
 
 class VideoScript(BaseModel):
     projet: str = Field(
-        description="Nom unique sans espace pour le projet (ex: Mystere_Dyatlov_Oural)."
+        description="Nom unique sans espace pour le projet (ex: Affaire_Landru_Gambais)."
     )
     niche: str = Field(description="Le sujet exact de la vidéo.")
     visual_bible: List[VisualBibleEntry] = Field(
@@ -253,11 +248,29 @@ class VideoScript(BaseModel):
 # ═══════════════════════════════════════════════════════════
 #  MEGA-PROMPT SYSTEME
 # ═══════════════════════════════════════════════════════════
-MEGA_PROMPT_SYSTEM = """Tu es le Showrunner de « Les Archives de Minuit », une série documentaire paranormale verticale.
-Tu racontes uniquement des événements documentés : fantômes, maisons hantées, monstres rapportés, lieux inexpliqués et disparitions à dimension paranormale.
-Ta signature est calme, précise et terrifiante. Tu parles comme si tu ouvrais un dossier qui n'aurait jamais dû être rendu public.
-La peur vient des faits concrets, du détail impossible et de ce qui reste sans réponse, jamais de cris ni de clichés.
-Le spectateur doit comprendre le mystère et ressentir une menace dans les trois premières secondes.
+STYLE_LOCK = (
+    "[STYLE LOCK: Premium cinematic 3D low-poly art style, crisp faceted polygon geometry, "
+    "physically based materials, portrait 9:16, sharp subject detail, harsh chiaroscuro shadows, "
+    "volumetric fog, cold desaturated blue-gray palette, restrained deep-red accents, "
+    "true crime documentary aesthetic]"
+)
+
+MEGA_PROMPT_SYSTEM = """Tu es le Showrunner de « Les Archives de Minuit », une chaîne documentaire verticale de true crime et de faits divers.
+Tu racontes uniquement des affaires criminelles réelles et documentées : crimes, disparitions, enquêtes, procès, casses et escroqueries.
+Ta signature est calme, précise et glaçante. Tu parles comme si tu ouvrais un dossier d'enquête.
+La tension vient des faits concrets, du détail qui ne colle pas et de ce qui reste sans réponse, jamais de cris ni de clichés.
+Le spectateur doit comprendre l'enjeu de l'affaire dans les trois premières secondes.
+
+════════════════════════════════════════════
+RÈGLE N°0 — CADRE JURIDIQUE (prioritaire sur toutes les autres)
+════════════════════════════════════════════
+- PRÉSOMPTION D'INNOCENCE : une personne n'est « coupable », « le meurtrier » ou « l'assassin » que si elle a été CONDAMNÉE DÉFINITIVEMENT. Sinon : « soupçonné », « mis en examen », « accusé », « jamais jugé ».
+- Ne nomme JAMAIS une personne soupçonnée, mise en examen, acquittée, relaxée ou bénéficiaire d'un non-lieu : dis « un suspect », « un homme de 40 ans », « le principal suspect ».
+- Ne nomme JAMAIS un mineur (victime, témoin ou auteur), ni par son nom ni par son prénom : « une fillette de huit ans », « un adolescent ».
+- Les personnes à ne pas nommer sont listées dans le brief : respecte cette liste à la lettre.
+- Dignité des victimes : aucun détail dégradant, aucune description de souffrance, aucune spéculation sur leur vie privée.
+- Distingue toujours ce qui est jugé, ce qui est allégué et ce qui est une hypothèse. Une rumeur n'est jamais présentée comme un fait.
+- Si l'affaire n'est pas jugée, dis-le explicitement dans le script.
 
 ════════════════════════════════════════════
 RÈGLE N°1 — BIBLE VISUELLE (cohérence absolue)
@@ -265,59 +278,55 @@ RÈGLE N°1 — BIBLE VISUELLE (cohérence absolue)
 Définis UNE FOIS l'apparence physique de chaque personnage et lieu clé en anglais dans 'visual_bible'.
 Utilise EXACTEMENT la même description dans chaque 'veo_prompt' où ils apparaissent.
 JAMAIS de changement de vêtements ou de traits entre les scènes.
+Aucun visage reconnaissable d'une personne réelle : silhouette, mains, nuque, personnage de dos.
 
 ════════════════════════════════════════════
 RÈGLE N°2 — STYLE VISUEL & FORMAT VERTICAL 9:16
 ════════════════════════════════════════════
 Chaque 'veo_prompt' décrit UNE SEULE ACTION physique précise (pas une ambiance).
-Ex : "A man's trembling hands turn the dial of a vintage shortwave radio, close-up shot"
+Ex : "A detective's gloved hand slides an old case file across a wooden desk, close-up shot"
 Ajoute toujours un mouvement de caméra (e.g. Slow dolly zoom in, Low angle push, Extreme close-up rack focus).
 
 Chaque 'veo_prompt' doit se terminer par le SUFFIXE OBLIGATOIRE exact :
-[STYLE LOCK: Premium cinematic 3D low-poly art style, crisp faceted polygon geometry, physically based materials, portrait 9:16, sharp subject detail, harsh chiaroscuro shadows, volumetric fog, cold desaturated blue-gray palette, restrained deep-red accents, paranormal documentary aesthetic]
-
+@@STYLE_LOCK@@
 
 INTERDICTIONS ABSOLUES dans veo_prompt : aucun panneau, aucun texte visible, aucune date écrite, aucun watermark, aucune interface avec mots lisibles.
 
 PROTOCOLE SÉCURITÉ IMAGE :
 - Ne demande jamais de gore, blessures graphiques, torture visible, sang détaillé, cadavre explicite, violence en cours, mineurs en danger ou suicide.
-- Si l'histoire contient de la violence, montre l'après-coup neutre : pièce vide, couloir, dossier, photo floue, objet abandonné, porte fermée, enquêteur de dos.
+- Montre l'après-coup neutre : pièce vide, ruban de police, couloir, dossier, objet abandonné, porte fermée, enquêteur de dos, salle d'audience.
 - Évite les mots déclencheurs : "gore", "blood splatter", "torture scene", "dead body close-up", "mutilated", "graphic injury".
 - Composition calibrée TikTok : sujet principal bien visible et centré, cadrage vertical (9:16 portrait), espace sombre en bas pour les sous-titres, pas de texte dans l'image.
 
 ════════════════════════════════════════════
 RÈGLE N°3 — NARRATION & ACCROCHE INVERSÉE (clarté maximale, 14 ans TikTok)
 ════════════════════════════════════════════
-- Pour la SCÈNE 1 (HOOK) : Applique systématiquement l'ACCROCHE INVERSÉE. Extrais le "plot twist" ou le fait le plus choquant/incroyable de l'histoire et place-le dès la première phrase dans les 3 premières secondes (Hook), AVANT d'énoncer le moindre contexte.
-- INTERDICTION ABSOLUE de commencer par des éléments de contexte dans la scène 1 : pas de date (ex: pas de "En 1959"), pas de prénom ou de nom propre (ex: pas de "Brian Shaffer"), pas de situation géographique précise. Le spectateur doit être frappé immédiatement par le mystère pur.
-  - Correct : "Sa voiture roulait encore sur l'autoroute, mais le conducteur s'était volatilisé de l'habitacle."
-  - Incorrect : "En 2006, à Columbus dans l'Ohio, Brian Shaffer disparaît mystérieusement d'un bar."
-- Phrases courtes : 6 à 14 mots. Sujet + verbe + fait.
-- Une seule info par phrase. Pas de métaphore.
-- Mots simples et concrets.
-- Noms-clés répétés dans 4-5 scènes pour ancrage mémoire.
-- Chiffres en lettres : "deux cents personnes" pas "200".
+- SCÈNE 1 (HOOK) : ACCROCHE INVERSÉE. Le fait le plus saisissant de l'affaire dès la première phrase, AVANT tout contexte.
+- Interdit dans la scène 1 : date, nom propre, lieu précis.
+  - Correct : "Pendant deux ans, il a envoyé des lettres à la police. Personne n'a jamais su qui les écrivait."
+  - Incorrect : "En 1969, à San Francisco, un tueur envoie des lettres à la presse."
+- Phrases courtes : 6 à 14 mots. Sujet + verbe + fait. Une seule info par phrase. Pas de métaphore.
+- Mots simples et concrets. Chiffres en lettres : "deux cents personnes" pas "200".
 - 18 à 25 mots par scène, pas plus.
-- Après le hook (à partir de la SCÈNE 2), situe le contexte : le protagoniste, la date, le lieu exact et un repère proche ordinaire pour situer l'histoire dans la réalité ("un bar ordinaire", "une rue normale", "un appel banal").
-- Le frisson vient du contraste : un lieu réel + un détail impossible.
-- Distingue clairement fait vérifié, explication officielle et légende. Ne présente jamais une rumeur comme un fait.
+- À partir de la SCÈNE 2 : contexte (date, lieu exact, repère ordinaire) — en respectant la RÈGLE N°0 pour les noms.
+- Le frisson vient du contraste : un lieu ordinaire + un détail qui ne colle pas.
 - Termine sur une phrase obsédante, pas sur une demande générique de commentaire.
 - Le sous-titre 'subtitle' doit être IDENTIQUE mot-pour-mot à 'audio_tts'.
 
 ════════════════════════════════════════════
 RÈGLE N°4 — STRUCTURE 10 SCÈNES (ordre chronologique)
 ════════════════════════════════════════════
-SCÈNE 1 — HOOK : Formule de l'Accroche Inversée (fait choquant / plot twist pur, sans date ni nom propre).
-SCÈNE 2 — CONTEXTE + QUI/QUAND/OÙ : protagoniste + date + lieu exact + repère proche ordinaire.
-SCÈNE 3 — DÉCLENCHEUR : ce qui commence tout.
-SCÈNE 4 — CE QU'ILS VIVENT : détails précis et troublants.
-SCÈNE 5 — L'ANOMALIE : le détail matériel qui rend l'affaire impossible.
-SCÈNE 6 — ESCALADE : une seconde preuve ou conséquence plus inquiétante.
-SCÈNE 7 — LE POINT DE BASCULE : disparition, apparition ou découverte.
-SCÈNE 8 — EXPLICATION OFFICIELLE : ce qu'elle explique, puis sa limite exacte.
-SCÈNE 9 — LA QUESTION IRRÉSOLUE : le fait qui résiste encore.
-SCÈNE 10 — TRACE FINALE : une phrase courte et obsédante qui referme le dossier sans CTA générique.
-"""
+SCÈNE 1 — HOOK : accroche inversée (fait saisissant, sans date ni nom propre).
+SCÈNE 2 — CONTEXTE : quand, où, qui (dans le respect de la RÈGLE N°0).
+SCÈNE 3 — LES FAITS : ce qui se passe, ce qu'on découvre.
+SCÈNE 4 — L'ENQUÊTE DÉMARRE : premiers constats, premières pistes.
+SCÈNE 5 — L'INDICE : le détail matériel qui change tout.
+SCÈNE 6 — LA PISTE : suspect, mobile ou fausse piste (sans nom si non condamné).
+SCÈNE 7 — LA BASCULE : arrestation, aveu, découverte ou impasse.
+SCÈNE 8 — LA JUSTICE : verdict et peine, ou absence de procès — formulé avec exactitude.
+SCÈNE 9 — CE QUI RESTE SANS RÉPONSE : le fait qui résiste encore.
+SCÈNE 10 — TRACE FINALE : une phrase courte et obsédante qui referme le dossier, sans CTA générique.
+""".replace("@@STYLE_LOCK@@", STYLE_LOCK)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -369,34 +378,35 @@ def discover_candidates(
         query = _instantiate_template(query_tpl)
         print(f"   🔑 Requête : '{query}'")
 
-        prompt = f"""You are a researcher hunting for OBSCURE but REAL documented paranormal and unexplained cases for the French vertical series "Les Archives de Minuit". The audience has already seen every viral classic.
+        prompt = f"""You are a researcher hunting for REAL, DOCUMENTED true crime cases and French "faits divers" for the French vertical channel "Les Archives de Minuit". The audience has already seen every viral classic.
 
 SEARCH QUERY: {query}
 
-Find {n_per_keyword} DISTINCT real, documented cases — pick cases that are:
-- well-documented in at least one reputable source
-- NOT viral hits (no Dyatlov, no Roswell, no Enfield, no Bermuda Triangle, no Black Dahlia, no Zodiac, no Mary Celeste, no JonBenét, no MH370, no Madeleine McCann, no Brian Shaffer, no Lars Mittank — these are over-saturated)
-- preferably from OUTSIDE the Anglosphere classics — explore Brazil, Argentina, Mexico, Japan, Korea, Indonesia, Russia, Eastern Europe, Africa, French-speaking countries
-- can be small-scale (a single village, a single hiker, a single building) — local mysteries are better than global ones
-- can be RECENT (post-2010) or OLD (pre-1950)
+Find {n_per_keyword} DISTINCT real criminal cases — pick cases that are:
+- documented in reputable sources (national or regional press, court records, police communications, Wikipedia)
+- legally safe to tell: either JUDGED with a FINAL conviction, or HISTORICAL (more than 20 years old), or officially UNSOLVED with no publicly named suspect
+- NOT viral hits (no Zodiac, no Black Dahlia, no Jack the Ripper, no Ted Bundy, no JonBenét, no Madeleine McCann, no Grégory Villemin, no Dupont de Ligonnès — over-saturated)
+- a mix of French and francophone "faits divers" (France, Belgium, Switzerland, Quebec) and international true crime
+- can be small-scale (a single village, a single family, a single heist) — local cases are better than global ones
 
 For each case, return:
-- title: short title in French
+- title: short title in French (case name or place, never the name of a minor or of an unconvicted suspect)
 - year_or_period: precise year(s) or decade
 - location: country + city/region
-- one_liner: 1 sentence summary in French, with the most arresting concrete fact (a name, a date, a body count, an evidence type)
-- source_hint: the kind of source where this is documented (Wikipedia, name of a news outlet, police archive, academic journal…)
+- legal_status: final conviction | judged, appeal pending | under investigation | unsolved | acquittal
+- one_liner: 1 sentence summary in French, with the most arresting concrete fact
+- source_hint: the kind of source where this is documented
 
 CRITICAL RULES:
-- ONLY real, documented cases. If you cannot find at least one reputable source, skip it.
-- DIVERSE pool — mix documented hauntings, unexplained places, reported creatures, maritime mysteries and paranormal disappearances.
-- EXCLUDE ordinary murders and conventional crime cases unless the central mystery is genuinely unexplained or paranormal.
+- ONLY real, documented criminal cases. If you cannot find at least one reputable source, skip it.
+- EXCLUDE paranormal, ghosts, cryptids, UFOs and legends.
+- EXCLUDE ongoing investigations with a publicly named suspect who has not been convicted.
 - AVOID THESE ALREADY-COVERED CASES (do not propose any of them, nor close variants):
 {exclusion}
 
 Output a valid JSON array. Example:
 [
-  {{ "title": "...", "year_or_period": "1992", "location": "Bolivia, La Paz", "one_liner": "...", "source_hint": "..." }},
+  {{ "title": "...", "year_or_period": "1992", "location": "France, Lyon", "legal_status": "final conviction", "one_liner": "...", "source_hint": "..." }},
   ...
 ]
 Return ONLY the JSON array. No explanation."""
@@ -455,6 +465,7 @@ Return ONLY the JSON array. No explanation."""
 class BriefPerson(BaseModel):
     name: str = ""
     role: str = ""
+    mineur: bool = False
 
 
 class BriefEvent(BaseModel):
@@ -481,6 +492,7 @@ class CaseBrief(BaseModel):
     timeline: List[BriefEvent] = Field(default_factory=list)
     evidence: List[str] = Field(default_factory=list)
     current_status: str = ""
+    statut_judiciaire: str = ""
     sources: List[BriefSource] = Field(default_factory=list)
     uncertainty_flags: List[str] = Field(default_factory=list)
     keywords: List[str] = Field(default_factory=list)
@@ -498,7 +510,7 @@ def deep_research(candidate: dict) -> Optional[CaseBrief]:
     year = candidate.get("year_or_period", "")
     print(f"📚 Deep research : '{title}' ({location}, {year})")
 
-    prompt = f"""You are a factual researcher building a verified brief about a real documented case for a serious documentary channel.
+    prompt = f"""You are a factual researcher building a verified brief about a real criminal case (true crime / French \"fait divers\") for a serious documentary channel.
 
 CASE TO INVESTIGATE:
 - Title: {title}
@@ -518,6 +530,11 @@ ABSOLUTE RULES — read every word:
 5. People's names must be real and spelled correctly.
 6. Dates must be as precise as your sources allow. Use 'approx.' when uncertain.
 7. If the case turns out to be a hoax, legend or pure fiction, set summary to exactly "HOAX_OR_FICTION".
+8. Set `statut_judiciaire` precisely, in French: "condamnation définitive", "jugé en première instance, appel en cours",
+   "instruction en cours", "non élucidé" or "acquittement / non-lieu". Check the most recent court decision.
+9. For each person, `role` must be precise, in French: victime, témoin, enquêteur, magistrat, suspect, mis en examen,
+   condamné, acquitté, membre de la famille. Set `mineur` to true if the person was under 18 at the time of the events.
+10. For French cases, prefer French sources (Le Monde, Le Parisien, Ouest-France, franceinfo, AFP, regional press).
 
 OUTPUT FORMAT — STRICT JSON, no markdown, no preamble. Use exactly these field names:
 
@@ -527,7 +544,7 @@ OUTPUT FORMAT — STRICT JSON, no markdown, no preamble. Use exactly these field
   "location": "{location}",
   "summary": "200-300 mots en français, neutre, faits vérifiés uniquement.",
   "people": [
-    {{ "name": "Nom complet", "role": "victime|témoin|enquêteur|suspect|membre famille" }}
+    {{ "name": "Nom complet", "role": "victime|témoin|enquêteur|suspect|mis en examen|condamné|acquitté|membre famille", "mineur": false }}
   ],
   "timeline": [
     {{ "when": "1977-08-30 ou 'fin août 1977'", "what": "Événement factuel concret." }}
@@ -537,6 +554,7 @@ OUTPUT FORMAT — STRICT JSON, no markdown, no preamble. Use exactly these field
     "Preuve 2"
   ],
   "current_status": "non résolu | résolu | partiellement expliqué | cold case",
+  "statut_judiciaire": "condamnation définitive | jugé en première instance, appel en cours | instruction en cours | non élucidé | acquittement / non-lieu",
   "sources": [
     {{ "name": "BBC News, article du 12 janvier 2018", "url": "https://www.bbc.com/...", "reliability": "reputable_media" }},
     {{ "name": "Wikipédia FR: Affaire X", "url": "https://fr.wikipedia.org/...", "reliability": "wikipedia" }}
@@ -580,26 +598,19 @@ Return ONLY the JSON object. Every field above must be present. Use empty arrays
             # Validation Pydantic — schéma tout-optionnel, donc ne lève qu'en
             # cas de types incompatibles (jamais juste pour un champ manquant).
             brief = CaseBrief(**data)
-            # Garde-fou : si Gemini signale "HOAX_OR_FICTION", on rejette.
+            # Un brief non sourcé ou trop maigre n'est jamais utilisé : pas de script
+            # sur de vraies personnes sans faits vérifiables.
+            ok, raison = brief_suffisant(brief.model_dump())
             if "HOAX_OR_FICTION" in brief.summary:
                 print("      🚫 Cas rejeté : hoax / fiction selon la recherche")
                 return None
-            # Vérifs qualité : un brief sans aucune source ou trop court n'est pas fiable.
-            if len(brief.sources) < 2:
-                print(
-                    f"      ⚠️ Seulement {len(brief.sources)} source(s) — brief insuffisamment sourcé"
-                )
-                if attempt == 0:
-                    continue
-            if len(brief.summary) < 80:
-                print(
-                    f"      ⚠️ Résumé trop court ({len(brief.summary)} car.) — brief incomplet"
-                )
-                if attempt == 0:
-                    continue
+            if not ok:
+                print(f"      ⚠️ Brief insuffisant : {raison}")
+                continue
             print(
                 f"      ✅ Brief vérifié : {len(brief.timeline)} événements, {len(brief.people)} personnes, "
-                f"{len(brief.sources)} sources, {len(brief.uncertainty_flags)} flags d'incertitude"
+                f"{len(brief.sources)} sources, {len(brief.uncertainty_flags)} flags d'incertitude, "
+                f"statut judiciaire : {brief.statut_judiciaire or '?'}"
             )
             return brief
         except Exception as e:
@@ -613,37 +624,45 @@ Return ONLY the JSON object. Every field above must be present. Use empty arrays
 # ═══════════════════════════════════════════════════════════
 #  GÉNÉRATION DU SCRIPT
 # ═══════════════════════════════════════════════════════════
-def generer_script(niche: str, brief: Optional[CaseBrief] = None) -> dict:
+def generer_script(niche: str, brief: CaseBrief) -> Optional[dict]:
     """Appelle Gemini avec le Mega-Prompt et retourne le dictionnaire du script.
 
-    Si `brief` est fourni, le script s'ancre dessus : aucune invention,
-    chaque scène utilise les noms/dates/lieux/preuves du brief. Les claims
-    incertains (uncertainty_flags) sont présentés avec des hedges
-    ("selon des témoins", "il aurait été", "des chercheurs avancent").
+    Le script s'ancre sur le `brief` (obligatoire) : aucune invention, chaque
+    scène utilise les noms/dates/lieux/preuves du brief, et les claims incertains
+    sont présentés avec prudence. Les garde-fous juridiques (usine.garde_fous)
+    sont vérifiés après génération : un script qui nomme un mineur ou une personne
+    non condamnée définitivement est régénéré, puis rejeté.
     """
-    # Construction du bloc de faits depuis le brief, transmis tel quel
-    # au Mega-Prompt — c'est la source unique de vérité pour la génération.
-    brief_block = ""
-    if brief is not None:
-        people_lines = "\n".join(f"  - {p.name} ({p.role})" for p in brief.people)
-        timeline_lines = "\n".join(f"  - {e.when} : {e.what}" for e in brief.timeline)
-        evidence_lines = "\n".join(f"  - {ev}" for ev in brief.evidence)
-        sources_lines = "\n".join(
-            f"  - {s.name} [{s.reliability}] {s.url}" for s in brief.sources
-        )
-        uncert_lines = (
-            "\n".join(f"  - {u}" for u in brief.uncertainty_flags)
-            if brief.uncertainty_flags
-            else "  (aucun — tout est bien sourcé)"
-        )
+    a_taire = personnes_a_taire(
+        [p.model_dump() for p in brief.people], brief.statut_judiciaire
+    )
+    people_lines = "\n".join(
+        f"  - {p.name} ({p.role}{', mineur' if p.mineur else ''})" for p in brief.people
+    )
+    timeline_lines = "\n".join(f"  - {e.when} : {e.what}" for e in brief.timeline)
+    evidence_lines = "\n".join(f"  - {ev}" for ev in brief.evidence)
+    sources_lines = "\n".join(
+        f"  - {s.name} [{s.reliability}] {s.url}" for s in brief.sources
+    )
+    uncert_lines = (
+        "\n".join(f"  - {u}" for u in brief.uncertainty_flags)
+        if brief.uncertainty_flags
+        else "  (aucun — tout est bien sourcé)"
+    )
+    taire_lines = (
+        "\n".join(f"  - {p['nom']} ({p['raison']})" for p in a_taire)
+        if a_taire
+        else "  (aucune)"
+    )
 
-        brief_block = f"""
+    brief_block = f"""
 
 ═══════════ BRIEF FACTUEL (SOURCE DE VÉRITÉ — N'INVENTE RIEN AU-DELÀ) ═══════════
 Titre : {brief.title}
 Période : {brief.year_or_period}
 Lieu : {brief.location}
 Statut actuel : {brief.current_status}
+Statut judiciaire : {brief.statut_judiciaire or "inconnu — reste prudent"}
 
 Résumé factuel :
 {brief.summary}
@@ -662,6 +681,9 @@ Sources :
 
 Claims INCERTAINS — à mentionner avec prudence ("selon", "il aurait", "des témoins affirment") :
 {uncert_lines}
+
+PERSONNES À NE JAMAIS NOMMER (ni nom, ni prénom — RÈGLE N°0) :
+{taire_lines}
 ═══════════════════════════════════════════════════════════════════════════════
 
 RÈGLES ANCRAGE FACTUEL :
@@ -672,26 +694,22 @@ RÈGLES ANCRAGE FACTUEL :
 - Aucune fabulation de prénom, date, adresse, témoignage non présent dans le brief.
 """
 
-    prompt_utilisateur = (
-        f"Génère un épisode de « Les Archives de Minuit » en 10 scènes sur le sujet suivant :\n\n"
-        f"{niche}\n"
-        f"{brief_block}\n"
-        f"RAPPEL CRITIQUE :\n"
-        f"- Scène 1 (Hook) : DOIT utiliser l'Accroche Inversée. Commence directement par le fait le plus choquant ou le plot twist, sans prénom, sans date, sans contexte géographique.\n"
-        f"- Scène 2 : Donne le contexte (prénom, date, lieu) — depuis le brief.\n"
-        f"- Escalade de la tension à chaque scène, en suivant la chronologie du brief.\n"
-        f"- Chaque veo_prompt DOIT se terminer par le STYLE LOCK exact.\n"
-        f"- Pas de texte visible dans l'image, pas de gore.\n"
-        f"- Chaque lyria_prompt doit se terminer par ', no melody, no music'."
-    )
-
-    STYLE_LOCK = (
-        "[STYLE LOCK: Premium cinematic 3D low-poly art style, crisp faceted polygon geometry, "
-        "physically based materials, portrait 9:16, sharp subject detail, harsh chiaroscuro shadows, "
-        "volumetric fog, cold desaturated blue-gray palette, restrained deep-red accents, paranormal documentary aesthetic]"
-    )
-
+    consigne_noms = ""
     for attempt in range(3):
+        prompt_utilisateur = (
+            f"Génère un dossier de « Les Archives de Minuit » en 10 scènes sur l'affaire suivante :\n\n"
+            f"{niche}\n"
+            f"{brief_block}\n"
+            f"RAPPEL CRITIQUE :\n"
+            f"- RÈGLE N°0 (cadre juridique) avant tout : présomption d'innocence, aucun mineur nommé.\n"
+            f"- Scène 1 (Hook) : accroche inversée, sans nom propre, sans date, sans lieu.\n"
+            f"- Scène 2 : le contexte (date, lieu) — depuis le brief.\n"
+            f"- Scène 8 : la décision de justice exacte (ou l'absence de procès).\n"
+            f"- Chaque veo_prompt DOIT se terminer par le STYLE LOCK exact.\n"
+            f"- Pas de texte visible dans l'image, pas de gore.\n"
+            f"- Chaque lyria_prompt doit se terminer par ', no melody, no music'."
+            f"{consigne_noms}"
+        )
         try:
             print(f"   🧠 Gemini génère le script structuré (Essai {attempt + 1}/3)...")
             response = client.models.generate_content(
@@ -707,170 +725,160 @@ RÈGLES ANCRAGE FACTUEL :
             )
 
             script_data = json.loads(response.text)
-
-            # Conversion de visual_bible de List[VisualBibleEntry] en Dict[str, str] pour compatibilité
-            visual_bible_list = script_data.get("visual_bible", [])
-            visual_bible_dict = {}
-            if isinstance(visual_bible_list, list):
-                for entry in visual_bible_list:
-                    if isinstance(entry, dict):
-                        name = entry.get("name")
-                        desc = entry.get("description")
-                        if name and desc:
-                            visual_bible_dict[name] = desc
-            elif isinstance(visual_bible_list, dict):
-                visual_bible_dict = visual_bible_list
-            script_data["visual_bible"] = visual_bible_dict
-            script_data["channel_identity"] = "Les Archives de Minuit"
-            script_data["visual_style"] = "low_poly_3d"
-            script_data["narrateur_genre"] = "masculin"
-
-            # Post-traitement de sécurité et formatage
-            for scene in script_data.get("scenes", []):
-                # Forcer la présence du STYLE LOCK
-                veo = scene.get("veo_prompt", "").strip()
-                if veo:
-                    if "[STYLE LOCK" not in veo:
-                        scene["veo_prompt"] = f"{veo} {STYLE_LOCK}"
-                else:
-                    scene["veo_prompt"] = (
-                        f"Dark portrait cinematic reconstruction. Slow dolly zoom in. {STYLE_LOCK}"
-                    )
-
-                # Forcer le format sonore Lyria
-                lyria = scene.get("lyria_prompt", "").strip()
-                if not lyria:
-                    scene["lyria_prompt"] = (
-                        "Low ominous sub-bass drone, creaking silence, no melody, no music"
-                    )
-                elif not lyria.endswith(", no melody, no music"):
-                    scene["lyria_prompt"] = f"{lyria.rstrip(',.')}, no melody, no music"
-
-            return script_data
         except Exception as e:
             print(f"   ⚠️ Erreur génération/parsing (essai {attempt + 1}) : {e}")
             time.sleep(3)
+            continue
+
+        violations = verifier_script(script_data, a_taire)
+        if violations:
+            print("   🚫 Garde-fous juridiques : script rejeté")
+            for v in violations:
+                print(f"      - {v}")
+            noms = ", ".join(sorted({p["nom"] for p in a_taire}))
+            consigne_noms = (
+                f"\n\nL'ESSAI PRÉCÉDENT A ÉTÉ REJETÉ : il nommait des personnes interdites. "
+                f"N'écris JAMAIS ces noms ni ces prénoms : {noms}. "
+                f"Désigne-les par leur rôle (« un suspect », « la fillette »)."
+            )
+            continue
+
+        retirees = nettoyer_requetes(script_data, a_taire)
+        if retirees:
+            print(
+                f"   🛡️ {retirees} requête(s) d'image retirée(s) (personne non nommable)"
+            )
+
+        # Conversion de visual_bible de List[VisualBibleEntry] en Dict[str, str] pour compatibilité
+        visual_bible_list = script_data.get("visual_bible", [])
+        visual_bible_dict = {}
+        if isinstance(visual_bible_list, list):
+            for entry in visual_bible_list:
+                if isinstance(entry, dict):
+                    name = entry.get("name")
+                    desc = entry.get("description")
+                    if name and desc:
+                        visual_bible_dict[name] = desc
+        elif isinstance(visual_bible_list, dict):
+            visual_bible_dict = visual_bible_list
+        script_data["visual_bible"] = visual_bible_dict
+        script_data["channel_identity"] = "Les Archives de Minuit"
+        script_data["visual_style"] = "low_poly_3d"
+        script_data["narrateur_genre"] = "masculin"
+        script_data["garde_fous"] = {
+            "statut_judiciaire": brief.statut_judiciaire,
+            "personnes_a_taire": a_taire,
+        }
+        script_data["validation"] = {"statut": A_VALIDER}
+
+        # Post-traitement de sécurité et formatage
+        for scene in script_data.get("scenes", []):
+            # Forcer la présence du STYLE LOCK
+            veo = scene.get("veo_prompt", "").strip()
+            if veo:
+                if "[STYLE LOCK" not in veo:
+                    scene["veo_prompt"] = f"{veo} {STYLE_LOCK}"
+            else:
+                scene["veo_prompt"] = (
+                    f"Dark portrait cinematic reconstruction. Slow dolly zoom in. {STYLE_LOCK}"
+                )
+
+            # Forcer le format sonore Lyria
+            lyria = scene.get("lyria_prompt", "").strip()
+            if not lyria:
+                scene["lyria_prompt"] = (
+                    "Low ominous sub-bass drone, creaking silence, no melody, no music"
+                )
+            elif not lyria.endswith(", no melody, no music"):
+                scene["lyria_prompt"] = f"{lyria.rstrip(',.')}, no melody, no music"
+
+        return script_data
     return None
 
 
 # ═══════════════════════════════════════════════════════════
 #  CRÉATION DU DOSSIER PROJET
 # ═══════════════════════════════════════════════════════════
-def creer_projet(niche: str = None) -> str:
+def _brief_depuis_secours(memory: dict, essais: int = 3):
+    """Deep research sur des affaires de secours jamais traitées, jusqu'à un brief vérifié."""
+    disponibles = [
+        n
+        for n in AFFAIRES_SECOURS
+        if not subject_already_used(_extract_keywords(n), memory)
+    ] or list(AFFAIRES_SECOURS)
+    random.shuffle(disponibles)
+    for affaire in disponibles[:essais]:
+        print(f"\n🗂️  Affaire de secours tentée : {affaire}")
+        brief = deep_research({"title": affaire, "one_liner": affaire})
+        if brief is not None:
+            return brief
+    return None
+
+
+def creer_projet(niche: str = None) -> Optional[str]:
     """Orchestre la génération et la sauvegarde du script.json.
 
-    Nouveau flow :
+    Flow :
       1. Charge la mémoire des sujets déjà traités.
-      2. Découvre des candidats par recherche par mots-clés (3 requêtes × 4 cas).
-      3. Pour le candidat retenu, deep research → brief factuel vérifié avec sources.
-      4. Génère le script ancré sur le brief (aucune invention).
-      5. Sauvegarde brief.json + met à jour la mémoire.
+      2. Découvre des candidats par recherche par mots-clés (3 requêtes × 4 cas),
+         ou prend le sujet imposé (`niche`).
+      3. Deep research → brief factuel vérifié avec sources. Sans brief vérifié,
+         AUCUN script n'est généré (pas de mode dégradé sur de vraies personnes).
+      4. Génère le script ancré sur le brief, contrôlé par les garde-fous juridiques.
+      5. Crée le dossier projet (statut « a_valider ») + met à jour la mémoire.
 
-    Si `niche` est passé en argument (override manuel), on saute la découverte
-    mais on tente quand même un deep research dessus.
+    Retourne le chemin du projet, ou None en cas d'échec.
     """
     memory = load_subject_memory()
-    chosen_candidate: Optional[dict] = None
     brief: Optional[CaseBrief] = None
 
     if niche:
-        # Override manuel : on construit un candidat minimal et on deep-research.
-        print(f"📌 Niche fournie manuellement : {niche}")
-        chosen_candidate = {
-            "title": niche,
-            "year_or_period": "",
-            "location": "",
-            "one_liner": niche,
-        }
+        print(f"📌 Sujet imposé : {niche}")
+        brief = deep_research({"title": niche, "one_liner": niche})
     else:
-        # Découverte automatique
-        candidates = discover_candidates(memory)
-        if not candidates:
-            # Fallback : random parmi NICHES_HORREUR jamais utilisées
+        for cand in discover_candidates(memory):
             print(
-                "   ⚠️ Aucun candidat trouvé via recherche, fallback sur banque locale"
+                f"\n🎯 Candidat tenté : {cand['title']} ({cand.get('location', '?')}, {cand.get('year_or_period', '?')})"
             )
-            available = [
-                n
-                for n in NICHES_HORREUR
-                if not subject_already_used(_extract_keywords(n), memory)
-            ]
-            if not available:
-                available = NICHES_HORREUR
-            niche = random.choice(available)
-            chosen_candidate = {
-                "title": niche,
-                "year_or_period": "",
-                "location": "",
-                "one_liner": niche,
-            }
-        else:
-            # On essaie chaque candidat dans l'ordre jusqu'à un deep research réussi.
-            for cand in candidates:
-                print(
-                    f"\n🎯 Candidat tenté : {cand['title']} ({cand.get('location', '?')}, {cand.get('year_or_period', '?')})"
-                )
-                b = deep_research(cand)
-                if b is not None:
-                    chosen_candidate = cand
-                    brief = b
-                    niche = b.title  # canonical title from the verified brief
-                    break
-                else:
-                    print("      ↪️  Cas non vérifié, on passe au suivant")
-
-            if brief is None:
-                # Tous les deep research ont échoué : fallback ultime
-                print("   ⚠️ Aucun candidat vérifiable, fallback sur banque locale")
-                available = [
-                    n
-                    for n in NICHES_HORREUR
-                    if not subject_already_used(_extract_keywords(n), memory)
-                ]
-                if not available:
-                    available = NICHES_HORREUR
-                niche = random.choice(available)
-                chosen_candidate = {"title": niche}
-
-    # Si la niche a été passée manuellement, on tente quand même un deep research.
-    if brief is None and chosen_candidate:
-        brief = deep_research(chosen_candidate)
+            brief = deep_research(cand)
+            if brief is not None:
+                break
+            print("      ↪️  Cas non vérifié, on passe au suivant")
         if brief is None:
-            print(
-                "   ⚠️ Deep research échouée — script sera généré sans brief (mode dégradé)"
-            )
+            print("   ⚠️ Aucun candidat vérifiable en ligne, affaires de secours")
+            brief = _brief_depuis_secours(memory)
 
-    # Nettoyage du nom de projet
+    if brief is None:
+        print("❌ Aucun brief vérifié (2 sources minimum) : pas de script généré.")
+        return None
+    niche = brief.title or niche
+
+    script_data = generer_script(niche, brief)
+    if not script_data:
+        print("❌ Échec de la génération du script (ou garde-fous non respectés).")
+        return None
+
+    # Le dossier n'est créé qu'une fois le script valide : un échec ne laisse
+    # pas de projet à moitié vide que l'étape suivante prendrait pour le dernier.
     mots = re.sub(r"[^\w\s]", "", niche).split()[:5]
     nom_base = "_".join(w.capitalize() for w in mots)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     nom_projet = f"{timestamp}_{nom_base}"
     dossier = f"projets/{nom_projet}"
-
-    os.makedirs(dossier, exist_ok=True)
-    os.makedirs(f"{dossier}/audio", exist_ok=True)
     os.makedirs(f"{dossier}/audio/sfx", exist_ok=True)
 
     print(f"\n{'═' * 55}")
     print(f"  🎬 NOUVEAU PROJET : {nom_projet}")
     print(f"{'═' * 55}")
-    print(f"  📖 Sujet : {niche[:80]}...")
+    print(f"  📖 Affaire : {niche[:80]}")
 
-    # Sauvegarde du brief (audit + traçabilité) AVANT la génération.
-    # Le brief est la source de vérité que la génération va consommer ;
-    # on le persiste pour pouvoir auditer ce que Gemini a vu.
-    if brief is not None:
-        with open(f"{dossier}/brief.json", "w", encoding="utf-8") as f:
-            json.dump(brief.model_dump(), f, indent=2, ensure_ascii=False)
-        print(
-            f"  📋 Brief sauvegardé ({len(brief.sources)} sources, "
-            f"{len(brief.uncertainty_flags)} flags) → {dossier}/brief.json"
-        )
-
-    script_data = generer_script(niche, brief=brief)
-    if not script_data:
-        print("❌ Échec de la génération du script.")
-        return None
+    # Brief = source de vérité consommée par la génération : gardé pour audit.
+    with open(f"{dossier}/brief.json", "w", encoding="utf-8") as f:
+        json.dump(brief.model_dump(), f, indent=2, ensure_ascii=False)
+    print(
+        f"  📋 Brief sauvegardé ({len(brief.sources)} sources, "
+        f"{len(brief.uncertainty_flags)} flags) → {dossier}/brief.json"
+    )
 
     # Sauvegarde brute
     with open(f"{dossier}/script_brut.txt", "w", encoding="utf-8") as f:
@@ -899,31 +907,32 @@ def creer_projet(niche: str = None) -> str:
         json.dump(script_data, f, indent=4, ensure_ascii=False)
 
     # Mise à jour de la mémoire des sujets traités (déduplication future).
-    # On stocke le brief résumé pour pouvoir le ressortir / l'auditer plus tard.
     entry = {
         "project_id": nom_projet,
         "title": niche,
-        "keywords": (brief.keywords if brief else _extract_keywords(niche)),
-        "year_or_period": (brief.year_or_period if brief else ""),
-        "location": (brief.location if brief else ""),
-        "current_status": (brief.current_status if brief else ""),
-        "n_sources": (len(brief.sources) if brief else 0),
-        "uncertainty_count": (len(brief.uncertainty_flags) if brief else 0),
+        "keywords": brief.keywords or _extract_keywords(niche),
+        "year_or_period": brief.year_or_period,
+        "location": brief.location,
+        "current_status": brief.current_status,
+        "statut_judiciaire": brief.statut_judiciaire,
+        "n_sources": len(brief.sources),
+        "uncertainty_count": len(brief.uncertainty_flags),
         "created_at": datetime.now().isoformat(timespec="seconds"),
     }
     memory["subjects"].append(entry)
     save_subject_memory(memory)
     print(f"  🧠 Mémoire mise à jour : {len(memory['subjects'])} sujets enregistrés")
 
-    print(f"\n✅ script.json sauvegardé → {dossier}/script.json")
+    print(f"\n✅ script.json sauvegardé (à valider) → {dossier}/script.json")
     print(f"📁 Projet : {dossier}")
     return dossier
 
 
 if __name__ == "__main__":
     import argparse
+    import sys
 
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sujet", help="Sujet précis (sinon recherche en ligne ou random)")
+    ap.add_argument("--sujet", help="Affaire précise (sinon recherche en ligne)")
     args = ap.parse_args()
-    creer_projet(args.sujet)
+    sys.exit(0 if creer_projet(args.sujet) else 1)

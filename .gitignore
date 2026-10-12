@@ -27,7 +27,18 @@ frame_*.jpg
 # Fichiers retirés du projet, gardés en local (à supprimer quand tu veux)
 _archive/
 
-# Claude Code
-.claude/journal/audit.log
-.claude/settings.local.json
+# Agents & outils IA
+.agents/
+.claude/
+.codex/
+CLAUDE.md
+AGENTS.md
 CLAUDE.local.md
+skills-lock.json
+
+# Identité personnelle & marque
+assets/brand/
+identite/
+logo_yurei.png
+yurei_watermark.png
+
